@@ -14,6 +14,13 @@ public class CarController : MonoBehaviour
     [SerializeField] private float acceleration = 30f;
     [SerializeField] private float followStrength = 12f;
 
+    [Header("Steering Wheel Settings")]
+    [SerializeField] private Transform steeringWheelPivot;
+    [SerializeField] private float maxSteeringAngle = 120f;
+    [SerializeField] private float steeringSmoothness = 10f;
+    [SerializeField] private Vector3 steeringAxis = Vector3.forward;
+    [SerializeField] private bool invertSteering = false;
+
     private Rigidbody rb;
 
     private bool isDragging;
@@ -24,6 +31,9 @@ public class CarController : MonoBehaviour
     private float targetX;
     private float minX;
     private float maxX;
+
+    private float steeringInput;
+    private Quaternion initialWheelRotation;
 
     private void Awake()
     {
@@ -37,50 +47,108 @@ public class CarController : MonoBehaviour
         targetX = initialX;
 
         rb.interpolation = RigidbodyInterpolation.Interpolate;
-
         rb.constraints |= RigidbodyConstraints.FreezeRotation;
+
+        if (steeringWheelPivot != null)
+        {
+            initialWheelRotation =
+                steeringWheelPivot.localRotation;
+        }
     }
 
     private void Update()
     {
-        if (Mouse.current == null)
-            return;
-
-        // Start dragging
-        if (Mouse.current.leftButton.wasPressedThisFrame)
+        if (Mouse.current != null)
         {
-            isDragging = true;
+            // Start dragging
+            if (Mouse.current.leftButton.wasPressedThisFrame)
+            {
+                isDragging = true;
 
-            startMouseX = Mouse.current.position.ReadValue().x;
+                startMouseX =
+                    Mouse.current.position.ReadValue().x;
 
-            startCarX = rb.position.x;
+                startCarX = rb.position.x;
+                targetX = startCarX;
+                steeringInput = 0f;
+            }
+
+            // While dragging
+            if (isDragging && Mouse.current.leftButton.isPressed)
+            {
+                float currentMouseX =
+                    Mouse.current.position.ReadValue().x;
+
+                float mouseDeltaX =
+                    currentMouseX - startMouseX;
+
+                // Move car horizontally
+                targetX = startCarX +
+                    mouseDeltaX * dragSensitivity;
+
+                targetX = Mathf.Clamp(
+                    targetX,
+                    minX,
+                    maxX
+                );
+
+                // Calculate steering direction
+                steeringInput = Mathf.Clamp(
+                    (targetX - startCarX) /
+                    Mathf.Max(horizontalLimit, 0.001f),
+                    -1f,
+                    1f
+                );
+            }
+
+            // Release mouse
+            if (Mouse.current.leftButton.wasReleasedThisFrame)
+            {
+                isDragging = false;
+                steeringInput = 0f;
+            }
         }
-
-        // While dragging
-        if (isDragging && Mouse.current.leftButton.isPressed)
+        else
         {
-            float currentMouseX =
-                Mouse.current.position.ReadValue().x;
-
-            float mouseDeltaX = currentMouseX - startMouseX;
-
-            // Convert mouse movement into car movement
-            targetX = startCarX + mouseDeltaX * dragSensitivity;
-
-            // Limit horizontal movement
-            targetX = Mathf.Clamp(targetX, minX, maxX);
-        }
-
-        // Stop dragging
-        if (Mouse.current.leftButton.wasReleasedThisFrame)
-        {
+            steeringInput = 0f;
             isDragging = false;
         }
+
+        UpdateSteeringWheel();
+    }
+
+    private void UpdateSteeringWheel()
+    {
+        if (steeringWheelPivot == null)
+            return;
+
+        float direction = invertSteering ? -1f : 1f;
+
+        float targetAngle =
+            steeringInput * maxSteeringAngle * direction;
+
+        Vector3 axis = steeringAxis.sqrMagnitude > 0.001f
+            ? steeringAxis.normalized
+            : Vector3.forward;
+
+        Quaternion targetRotation =
+            initialWheelRotation *
+            Quaternion.AngleAxis(targetAngle, axis);
+
+        float smooth = 1f - Mathf.Exp(
+            -steeringSmoothness * Time.deltaTime
+        );
+
+        steeringWheelPivot.localRotation =
+            Quaternion.Slerp(
+                steeringWheelPivot.localRotation,
+                targetRotation,
+                smooth
+            );
     }
 
     private void FixedUpdate()
     {
-        // Calculate desired horizontal velocity
         float error = targetX - rb.position.x;
 
         float desiredVelocityX = Mathf.Clamp(
@@ -89,7 +157,6 @@ public class CarController : MonoBehaviour
             maxHorizontalSpeed
         );
 
-        // Smooth horizontal movement
         Vector3 velocity = rb.linearVelocity;
 
         velocity.x = Mathf.MoveTowards(
