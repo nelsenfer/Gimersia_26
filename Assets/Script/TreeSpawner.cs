@@ -25,14 +25,15 @@ public class TreeSpawner : MonoBehaviour
     [SerializeField] private float despawnDistance = 100f;
     [SerializeField] private bool moveOppositePlayerForward = false;
 
-    [Header("Ground Alignment")]
-    [SerializeField] private bool alignTreeToGround = true;
-    [SerializeField] private float groundOffset = 0.02f;
-
     [Header("Ground Detection")]
+    [SerializeField] private Collider groundSurface;
     [SerializeField] private LayerMask groundLayers;
     [SerializeField] private float raycastStartHeight = 50f;
     [SerializeField] private float raycastDistance = 200f;
+
+    [Header("Ground Alignment")]
+    [SerializeField] private bool alignTreeToGround = true;
+    [SerializeField] private float groundOffset = 0f;
 
     private readonly List<GameObject> activeTrees = new();
 
@@ -64,13 +65,9 @@ public class TreeSpawner : MonoBehaviour
         }
 
         if (spawnImmediately)
-        {
             nextSpawnTime = Time.time;
-        }
         else
-        {
             ScheduleNextSpawn();
-        }
     }
 
     private void Update()
@@ -93,15 +90,8 @@ public class TreeSpawner : MonoBehaviour
 
     private void ScheduleNextSpawn()
     {
-        float min = Mathf.Min(
-            minSpawnInterval,
-            maxSpawnInterval
-        );
-
-        float max = Mathf.Max(
-            minSpawnInterval,
-            maxSpawnInterval
-        );
+        float min = Mathf.Min(minSpawnInterval, maxSpawnInterval);
+        float max = Mathf.Max(minSpawnInterval, maxSpawnInterval);
 
         nextSpawnTime = Time.time + Random.Range(min, max);
     }
@@ -110,6 +100,7 @@ public class TreeSpawner : MonoBehaviour
     {
         List<Transform> availablePoints = new();
 
+        // Find available spawn points
         foreach (Transform point in spawnPoints)
         {
             if (point == null)
@@ -140,9 +131,7 @@ public class TreeSpawner : MonoBehaviour
             }
 
             if (!isBlocked)
-            {
                 availablePoints.Add(point);
-            }
         }
 
         if (availablePoints.Count == 0)
@@ -163,39 +152,74 @@ public class TreeSpawner : MonoBehaviour
                 Random.Range(0, treePrefabs.Length)
             ];
 
-        // Get Y rotation from spawn point
+        // Detect ground before spawning
+        float groundY = selectedPoint.position.y;
+
+        if (alignTreeToGround)
+        {
+            if (!TryGetGroundHeight(
+                selectedPoint.position,
+                out groundY))
+            {
+                Debug.LogWarning(
+                    "Ground tidak ditemukan pada " +
+                    selectedPoint.name
+                );
+
+                return;
+            }
+        }
+
+        // Preserve prefab rotation
         Quaternion spawnYaw = Quaternion.Euler(
             0f,
             selectedPoint.eulerAngles.y,
             0f
         );
 
-        // Preserve original prefab rotation
         Quaternion prefabOriginalRotation =
             selectedPrefab.transform.rotation;
 
-        // Combine original prefab rotation with spawn rotation
         Quaternion spawnRotation =
             spawnYaw * prefabOriginalRotation;
 
-        // Spawn tree
+        // Determine spawn position
+        Vector3 spawnPosition = new Vector3(
+            selectedPoint.position.x,
+            groundY,
+            selectedPoint.position.z
+        );
+
+        // Instantiate tree
         GameObject newTree = Instantiate(
             selectedPrefab,
-            selectedPoint.position,
+            spawnPosition,
             spawnRotation
         );
 
-        // Detect actual ground below spawn point
+        // Add EnvironmentMover first so Rigidbody exists
+        EnvironmentMover mover =
+            newTree.GetComponent<EnvironmentMover>();
+
+        if (mover == null)
+        {
+            mover = newTree.AddComponent<EnvironmentMover>();
+        }
+
+        // Keep tree physics stable
+        Rigidbody treeRb =
+            newTree.GetComponent<Rigidbody>();
+
+        if (treeRb != null)
+        {
+            treeRb.isKinematic = true;
+            treeRb.useGravity = false;
+        }
+
+        // Align tree to actual ground
         if (alignTreeToGround)
         {
-            float groundY = GetGroundHeight(
-                selectedPoint.position
-            );
-
-            AlignTreeToGround(
-                newTree,
-                groundY
-            );
+            AlignTreeToGround(newTree, groundY);
         }
 
         // Determine movement direction
@@ -206,15 +230,7 @@ public class TreeSpawner : MonoBehaviour
         direction.y = 0f;
         direction.Normalize();
 
-        // Get or add EnvironmentMover
-        EnvironmentMover mover =
-            newTree.GetComponent<EnvironmentMover>();
-
-        if (mover == null)
-        {
-            mover = newTree.AddComponent<EnvironmentMover>();
-        }
-
+        // Initialize tree movement
         mover.Initialize(
             direction,
             moveSpeed,
@@ -225,42 +241,76 @@ public class TreeSpawner : MonoBehaviour
 
         Debug.Log(
             "Tree spawned: " + selectedPrefab.name +
-            " at " + selectedPoint.name
+            " | Spawn: " + selectedPoint.name +
+            " | Ground Y: " + groundY
         );
     }
 
-    // Detect ground using Raycast
-    private float GetGroundHeight(Vector3 spawnPosition)
+    // Detect actual ground below spawn point
+    private bool TryGetGroundHeight(
+        Vector3 spawnPosition,
+        out float groundY)
     {
         Vector3 rayOrigin =
-            spawnPosition + Vector3.up * raycastStartHeight;
+            spawnPosition +
+            Vector3.up * raycastStartHeight;
 
-        if (Physics.Raycast(
-            rayOrigin,
-            Vector3.down,
-            out RaycastHit hit,
-            raycastDistance,
-            groundLayers,
-            QueryTriggerInteraction.Ignore))
+        Ray ray = new Ray(rayOrigin, Vector3.down);
+
+        RaycastHit hit;
+
+        bool foundGround;
+
+        // Prefer explicitly assigned Road Collider
+        if (groundSurface != null)
         {
-            Debug.Log(
-                "Ground detected: " + hit.collider.name +
-                " | Height: " + hit.point.y
+            foundGround = groundSurface.Raycast(
+                ray,
+                out hit,
+                raycastDistance
             );
-
-            return hit.point.y;
+        }
+        else
+        {
+            foundGround = Physics.Raycast(
+                ray,
+                out hit,
+                raycastDistance,
+                groundLayers,
+                QueryTriggerInteraction.Ignore
+            );
         }
 
+        if (foundGround)
+        {
+            groundY = hit.point.y;
+
+            Debug.Log(
+                "Ground detected: " + hit.collider.name +
+                " | Height: " + groundY
+            );
+
+            Debug.DrawRay(
+                rayOrigin,
+                Vector3.down * raycastDistance,
+                Color.green,
+                2f
+            );
+
+            return true;
+        }
+
+        groundY = spawnPosition.y;
+
         Debug.LogWarning(
-            "Ground tidak ditemukan di bawah Spawn Point: " +
-            spawnPosition +
-            ". Periksa Collider dan Ground Layer."
+            "Ground tidak ditemukan di " +
+            spawnPosition
         );
 
-        return spawnPosition.y;
+        return false;
     }
 
-    // Align bottom of tree with detected ground
+    // Align lowest visual point of the tree to ground
     private void AlignTreeToGround(
         GameObject tree,
         float groundY)
@@ -268,7 +318,28 @@ public class TreeSpawner : MonoBehaviour
         Renderer[] renderers =
             tree.GetComponentsInChildren<Renderer>(true);
 
-        if (renderers.Length == 0)
+        bool rendererFound = false;
+
+        Bounds combinedBounds = new Bounds();
+
+        foreach (Renderer renderer in renderers)
+        {
+            if (!renderer.enabled ||
+                !renderer.gameObject.activeInHierarchy)
+                continue;
+
+            if (!rendererFound)
+            {
+                combinedBounds = renderer.bounds;
+                rendererFound = true;
+            }
+            else
+            {
+                combinedBounds.Encapsulate(renderer.bounds);
+            }
+        }
+
+        if (!rendererFound)
         {
             Debug.LogWarning(
                 "Renderer tidak ditemukan pada " + tree.name
@@ -277,32 +348,40 @@ public class TreeSpawner : MonoBehaviour
             return;
         }
 
-        float lowestPoint = float.MaxValue;
-        bool rendererFound = false;
-
-        foreach (Renderer renderer in renderers)
-        {
-            if (!renderer.enabled)
-                continue;
-
-            lowestPoint = Mathf.Min(
-                lowestPoint,
-                renderer.bounds.min.y
-            );
-
-            rendererFound = true;
-        }
-
-        if (!rendererFound)
-            return;
+        // Calculate the tree's lowest visual point
+        float lowestPoint = combinedBounds.min.y;
 
         // Calculate vertical correction
-        float offsetY =
+        float correction =
             groundY - lowestPoint + groundOffset;
 
-        // Move tree to ground level
-        tree.transform.position +=
-            Vector3.up * offsetY;
+        // Apply corrected position
+        Vector3 correctedPosition =
+            tree.transform.position +
+            Vector3.up * correction;
+
+        tree.transform.position = correctedPosition;
+
+        // Synchronize Rigidbody with Transform
+        Rigidbody rb = tree.GetComponent<Rigidbody>();
+
+        if (rb != null)
+        {
+            rb.position = correctedPosition;
+            rb.rotation = tree.transform.rotation;
+        }
+
+        // Synchronize Unity physics
+        Physics.SyncTransforms();
+
+        Debug.Log(
+            "TREE ALIGNMENT: " + tree.name +
+            " | Ground Y: " + groundY.ToString("F3") +
+            " | Bottom Before: " + lowestPoint.ToString("F3") +
+            " | Correction: " + correction.ToString("F3") +
+            " | Bottom After: " +
+            (lowestPoint + correction).ToString("F3")
+        );
     }
 
     public static void StopSpawning()
