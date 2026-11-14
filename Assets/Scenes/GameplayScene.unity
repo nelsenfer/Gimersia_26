@@ -673,14 +673,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9def03b62bc5efb4b891b2793424d29f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CarController
-  dragSensitivity: 0.01
-  horizontalLimit: 4.5
-  maxHorizontalSpeed: 8
+  roadCenterX: -0.14
+  laneOffset: 3
+  startingLane: 1
+  laneChangeSpeed: 8
   acceleration: 30
   followStrength: 12
+  swipeThresholdPixels: 60
   steeringWheelPivot: {fileID: 838605000}
   maxSteeringAngle: 120
-  steeringSmoothness: 10
+  steeringHoldDuration: 0.08
+  steeringTurnSmoothTime: 0.05
+  steeringReturnSmoothTime: 0.12
   steeringAxis: {x: 0, y: 0, z: 1}
   invertSteering: 0
 --- !u!54 &923998251
@@ -719,7 +723,7 @@ Transform:
   m_GameObject: {fileID: 923998249}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
-  m_LocalPosition: {x: 0.01, y: 0.91, z: -16.63}
+  m_LocalPosition: {x: -2.6, y: 0.91, z: -16.63}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
