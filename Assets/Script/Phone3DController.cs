@@ -3,7 +3,8 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Mengontrol pergerakan 3D tangan dan smartphone antara posisi Idle (santai di bawah)
-/// dan posisi Focus (diangkat mendekat ke kamera) berdasarkan posisi kursor mouse di layar.
+/// dan posisi Focus (diangkat mendekat ke kamera).
+/// Sekarang diubah menggunakan KLIK KANAN MOUSE (Toggle) agar tidak mengganggu kontrol kemudi.
 /// </summary>
 public class Phone3DController : MonoBehaviour
 {
@@ -14,12 +15,15 @@ public class Phone3DController : MonoBehaviour
     [Tooltip("Titik acuan posisi & rotasi saat HP diangkat mendekat ke kamera")]
     [SerializeField] private Transform focusPoint;
 
-    [Header("Deteksi Mouse di Layar")]
-    [Tooltip("Batas horizontal layar untuk memicu fokus (0.5 = separuh kanan layar)")]
+    [Header("Mode Input")]
+    [Tooltip("True: Toggle menggunakan Klik Kanan Mouse (Disarankan). False: Otomatis berdasarkan mouse di area kanan.")]
+    [SerializeField] private bool useRightClickToggle = true;
+
+    [Tooltip("Batas horizontal layar jika useRightClickToggle = false (0.5 = separuh kanan layar)")]
     [Range(0.2f, 0.8f)]
     [SerializeField] private float rightSideThreshold = 0.5f;
 
-    [Tooltip("Jeda toleransi (buffer) agar tidak bergetar saat mouse tepat di garis tengah")]
+    [Tooltip("Jeda toleransi jika menggunakan posisi mouse")]
     [Range(0.01f, 0.1f)]
     [SerializeField] private float thresholdBuffer = 0.03f;
 
@@ -39,7 +43,6 @@ public class Phone3DController : MonoBehaviour
 
     private void Start()
     {
-        // Validasi referensi agar developer langsung tahu jika ada slot yang kosong di Inspector
         if (idlePoint == null || focusPoint == null)
         {
             Debug.LogWarning(
@@ -58,29 +61,40 @@ public class Phone3DController : MonoBehaviour
 
     private void Update()
     {
-        CheckMousePosition();
+        CheckFocusInput();
         AnimatePhone();
     }
 
     /// <summary>
-    /// Memeriksa posisi kursor mouse di layar secara horizontal (0.0 = kiri, 1.0 = kanan)
+    /// Memeriksa input untuk toggle fokus HP
     /// </summary>
-    private void CheckMousePosition()
+    private void CheckFocusInput()
     {
         if (Mouse.current == null) return;
 
-        // Ambil koordinat X mouse dan ubah ke persentase layar (0.0 s/d 1.0)
-        float mouseX = Mouse.current.position.ReadValue().x;
-        float screenRatioX = Mathf.Clamp01(mouseX / Screen.width);
-
-        // Gunakan buffer zone (histeresis) agar tidak flickering di perbatasan
-        if (!isFocused && screenRatioX >= (rightSideThreshold + thresholdBuffer))
+        if (useRightClickToggle)
         {
-            isFocused = true;
+            // TOGGLE FOKUS DENGAN KLIK KANAN
+            if (Mouse.current.rightButton.wasPressedThisFrame)
+            {
+                isFocused = !isFocused;
+                Debug.Log("<color=yellow>[HP Mode]</color> Status Fokus: " + (isFocused ? "ANGKAT HP" : "TURUNKAN HP"));
+            }
         }
-        else if (isFocused && screenRatioX <= (rightSideThreshold - thresholdBuffer))
+        else
         {
-            isFocused = false;
+            // Opsi Lama: Berdasarkan posisi mouse horizontal
+            float mouseX = Mouse.current.position.ReadValue().x;
+            float screenRatioX = Mathf.Clamp01(mouseX / Screen.width);
+
+            if (!isFocused && screenRatioX >= (rightSideThreshold + thresholdBuffer))
+            {
+                isFocused = true;
+            }
+            else if (isFocused && screenRatioX <= (rightSideThreshold - thresholdBuffer))
+            {
+                isFocused = false;
+            }
         }
     }
 
