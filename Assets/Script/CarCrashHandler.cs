@@ -48,23 +48,35 @@ public class CarCrashHandler : MonoBehaviour
 
         hasCrashed = true;
 
-        Debug.LogWarning("CAR CRASH!");
+        Debug.LogWarning("CAR CRASH! GAME STOPPED!");
 
-        // Stop environment movement
+        // Stop all moving environment objects
         EnvironmentMover.StopEnvironment();
 
-        // Disable car input
+        // Stop spawning new trees
+        TreeSpawner.StopSpawning();
+
+        // Stop road line movement
+        RoadLineSpawner.StopLines();
+
+        // Disable car controls
         if (carController != null)
+        {
             carController.enabled = false;
+        }
 
         // Stop car physics
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
         rb.isKinematic = true;
 
-        // Start camera impact
+        // Start camera impact effect
         if (cameraTransform != null)
+        {
             StartCoroutine(CameraShake());
+        }
+
+        Debug.Log("Crash sequence completed.");
     }
 
     private bool IsObstacle(Collider other)
@@ -115,7 +127,7 @@ public class CarCrashHandler : MonoBehaviour
             yield return null;
         }
 
-        // Restore camera
+        // Restore original camera position and rotation
         cameraTransform.localPosition =
             originalCameraPosition;
 
