@@ -208,18 +208,6 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
         }
         else
         {
-            // Pastikan berada di dalam playAreaRect dengan ukuran penuh mengikuti playAreaRect
-            RectTransform overlayRt = resultOverlayPanel.GetComponent<RectTransform>();
-            if (overlayRt != null && playAreaRect != null)
-            {
-                if (overlayRt.parent != playAreaRect)
-                {
-                    overlayRt.SetParent(playAreaRect, false);
-                }
-                PhoneUIHelper.ApplyAnchorBox(overlayRt, Vector2.zero, Vector2.one);
-                overlayRt.SetAsLastSibling();
-            }
-
             if (resultOverlayText == null)
             {
                 resultOverlayText = resultOverlayPanel.GetComponentInChildren<Text>(true);
