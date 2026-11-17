@@ -53,8 +53,9 @@ public class CarCrashHandler : MonoBehaviour
         // Stop all moving environment objects
         EnvironmentMover.StopEnvironment();
 
-        // Stop spawning new trees
+        // Stop spawning new trees & NPCs
         TreeSpawner.StopSpawning();
+        NPCSpawner.StopSpawning();
 
         // Stop road line movement
         RoadLineSpawner.StopLines();
