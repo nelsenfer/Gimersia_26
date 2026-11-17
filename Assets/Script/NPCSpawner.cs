@@ -21,14 +21,21 @@ public class NPCSpawner : MonoBehaviour
     [SerializeField] private float laneOffset = 3f;
 
     [Header("Pengaturan Jarak Spawn & Despawn")]
-    [Tooltip("Jarak spawn di depan mobil player (taruh jauh di dalam kabut, misal 85-100)")]
-    [SerializeField] private float spawnDistanceAhead = 90f;
+    [Tooltip("Jarak spawn di depan mobil player (taruh jauh di dalam kabut, misal 75)")]
+    [SerializeField] private float spawnDistanceAhead = 75f;
 
-    [Tooltip("Total jarak tempuh mundur sebelum mobil NPC dihancurkan di belakang kamera")]
-    [SerializeField] private float despawnDistance = 130f;
+    [Tooltip("Jarak tambahan di belakang mobil player sebelum NPC dihancurkan")]
+    [SerializeField] private float despawnBehindDistance = 35f;
 
     [Tooltip("Samakan dengan arah conveyor TreeSpawner (false jika Car Root rotasi Y=180)")]
     [SerializeField] private bool moveOppositePlayerForward = false;
+
+    [Header("Pre-Spawn Awal (Agar Jalan Langsung Ramai Saat Mulai)")]
+    [Tooltip("Langsung spawn beberapa mobil di depan saat game dimulai")]
+    [SerializeField] private bool preSpawnOnStart = true;
+
+    [Tooltip("Jarak mobil-mobil awal di depan player saat baru Play")]
+    [SerializeField] private float[] initialSpawnDistances = new float[] { 35f, 60f };
 
     [Header("Pengaturan Kecepatan Seragam")]
     [Tooltip("Kecepatan jalan player (samakan dengan moveSpeed RoadLineSpawner, misal 12)")]
@@ -87,6 +94,15 @@ public class NPCSpawner : MonoBehaviour
             return;
         }
 
+        if (preSpawnOnStart && initialSpawnDistances != null)
+        {
+            for (int i = 0; i < initialSpawnDistances.Length; i++)
+            {
+                if (activeNPCs.Count >= maxActiveNPCs) break;
+                TrySpawnNPCAtDistance(initialSpawnDistances[i]);
+            }
+        }
+
         if (spawnImmediately)
             nextSpawnTime = Time.time;
         else
@@ -133,10 +149,15 @@ public class NPCSpawner : MonoBehaviour
 
     private void TrySpawnNPC()
     {
+        TrySpawnNPCAtDistance(spawnDistanceAhead);
+    }
+
+    private void TrySpawnNPCAtDistance(float distanceAhead)
+    {
         Vector3 moveDir = GetMoveDirection();
         Vector3 aheadDir = -moveDir;
 
-        float spawnZ = playerCar.position.z + aheadDir.z * spawnDistanceAhead;
+        float spawnZ = playerCar.position.z + aheadDir.z * distanceAhead;
 
         // Acak urutan pengecekan jalur (0 atau 1)
         int firstLane = Random.Range(0, 2);
@@ -179,7 +200,8 @@ public class NPCSpawner : MonoBehaviour
         }
 
         float relativeSpeed = Mathf.Max(0.5f, playerSpeed - npcForwardSpeed);
-        mover.Initialize(moveDir, relativeSpeed, despawnDistance);
+        float totalTravelDistance = Mathf.Max(40f, distanceAhead + despawnBehindDistance);
+        mover.Initialize(moveDir, relativeSpeed, totalTravelDistance);
 
         activeNPCs.Add(new ActiveNPC
         {
@@ -325,11 +347,18 @@ public class NPCSpawner : MonoBehaviour
         if (!obj.CompareTag("Obstacle"))
             obj.tag = "Obstacle";
 
-        Collider col = obj.GetComponentInChildren<Collider>();
-        if (col == null)
+        Collider[] cols = obj.GetComponentsInChildren<Collider>(true);
+        if (cols == null || cols.Length == 0)
         {
             BoxCollider box = obj.AddComponent<BoxCollider>();
             box.isTrigger = true;
+        }
+        else
+        {
+            for (int i = 0; i < cols.Length; i++)
+            {
+                cols[i].isTrigger = true;
+            }
         }
     }
 

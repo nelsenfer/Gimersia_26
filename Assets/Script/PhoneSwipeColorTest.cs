@@ -425,6 +425,11 @@ public class PhoneSwipeColorTest : MonoBehaviour, IPointerDownHandler, IDragHand
             return;
 
         totalDopamineEarned += amount;
+
+        if (ConsciousnessManager.Instance != null)
+        {
+            ConsciousnessManager.Instance.AddConsciousness(amount);
+        }
     }
 
     private void UpdateTopStatusBar(string message)

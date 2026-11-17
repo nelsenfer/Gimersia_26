@@ -28,6 +28,9 @@ public class CarCrashHandler : MonoBehaviour
         if (carController == null)
             carController = GetComponent<CarController>();
 
+        if (cameraTransform == null && Camera.main != null)
+            cameraTransform = Camera.main.transform;
+
         if (cameraTransform != null)
         {
             originalCameraPosition =
@@ -38,13 +41,45 @@ public class CarCrashHandler : MonoBehaviour
         }
     }
 
+    private bool isCrashCooldown;
+
     private void OnTriggerEnter(Collider other)
     {
-        if (hasCrashed)
+        TryHandleCrash(other);
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        TryHandleCrash(collision.collider);
+    }
+
+    private void TryHandleCrash(Collider other)
+    {
+        if (other == null || hasCrashed || isCrashCooldown)
             return;
 
-        if (!IsObstacle(other))
+        Transform obstacleRoot = GetObstacleRoot(other);
+        if (obstacleRoot == null)
             return;
+
+        // Start camera impact effect
+        if (cameraTransform != null)
+        {
+            StartCoroutine(CameraShake());
+        }
+
+        // Cek sistem 3 Nyawa & Adrenalin dari ConsciousnessManager
+        if (ConsciousnessManager.Instance != null)
+        {
+            bool isGameOver = ConsciousnessManager.Instance.HandleCarCrash();
+            if (!isGameOver)
+            {
+                // Rem mendadak berhasil! Hapus obstacle yang tertabrak & lanjut jalan
+                Destroy(obstacleRoot.gameObject);
+                StartCoroutine(CrashCooldownRoutine());
+                return;
+            }
+        }
 
         hasCrashed = true;
 
@@ -71,32 +106,50 @@ public class CarCrashHandler : MonoBehaviour
         rb.angularVelocity = Vector3.zero;
         rb.isKinematic = true;
 
-        // Start camera impact effect
-        if (cameraTransform != null)
-        {
-            StartCoroutine(CameraShake());
-        }
-
         Debug.Log("Crash sequence completed.");
     }
 
-    private bool IsObstacle(Collider other)
+    private IEnumerator CrashCooldownRoutine()
+    {
+        isCrashCooldown = true;
+        yield return new WaitForSeconds(0.6f);
+        isCrashCooldown = false;
+    }
+
+    private Transform GetObstacleRoot(Collider other)
     {
         Transform current = other.transform;
 
         while (current != null)
         {
             if (current.CompareTag("Obstacle"))
-                return true;
+                return current;
 
             current = current.parent;
         }
 
-        return false;
+        return null;
     }
+
+    private bool isShaking;
 
     private IEnumerator CameraShake()
     {
+        if (isShaking) yield break;
+        isShaking = true;
+
+        // Ambil posisi kamera saat ini
+        if (cameraTransform.parent != null && cameraTransform.localPosition.sqrMagnitude < 0.001f)
+        {
+            originalCameraPosition = Vector3.zero;
+            originalCameraRotation = Quaternion.identity;
+        }
+        else
+        {
+            originalCameraPosition = cameraTransform.localPosition;
+            originalCameraRotation = cameraTransform.localRotation;
+        }
+
         float elapsed = 0f;
 
         while (elapsed < shakeDuration)
@@ -134,5 +187,7 @@ public class CarCrashHandler : MonoBehaviour
 
         cameraTransform.localRotation =
             originalCameraRotation;
+
+        isShaking = false;
     }
 }
