@@ -117,6 +117,7 @@ public class ConsciousnessManager : MonoBehaviour
         }
         Instance = this;
 
+        ResetAllGameplaySystems();
         EnsureHUDCreated();
         InitHeadPivot();
         InitPostProcessingBlur();
@@ -375,8 +376,18 @@ public class ConsciousnessManager : MonoBehaviour
         if (car != null) car.enabled = false;
     }
 
+    private void ResetAllGameplaySystems()
+    {
+        Time.timeScale = 1f;
+        EnvironmentMover.ResetEnvironment();
+        TreeSpawner.ResetSpawning();
+        NPCSpawner.ResetSpawning();
+        RoadLineSpawner.ResetLines();
+    }
+
     public void RestartLevel()
     {
+        ResetAllGameplaySystems();
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 

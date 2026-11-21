@@ -67,4 +67,9 @@ public class EnvironmentMover : MonoBehaviour
     {
         environmentRunning = false;
     }
+
+    public static void ResetEnvironment()
+    {
+        environmentRunning = true;
+    }
 }

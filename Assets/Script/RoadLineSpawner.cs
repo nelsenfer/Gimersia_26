@@ -37,6 +37,11 @@ public class RoadLineSpawner : MonoBehaviour
         linesMoving = true;
     }
 
+    private void Awake()
+    {
+        linesMoving = true;
+    }
+
     private void Start()
     {
         if (playerCar == null || linePrefab == null)
@@ -167,5 +172,10 @@ public class RoadLineSpawner : MonoBehaviour
     public static void StopLines()
     {
         linesMoving = false;
+    }
+
+    public static void ResetLines()
+    {
+        linesMoving = true;
     }
 }

@@ -48,6 +48,11 @@ public class TreeSpawner : MonoBehaviour
         spawningEnabled = true;
     }
 
+    private void Awake()
+    {
+        spawningEnabled = true;
+    }
+
     private void Start()
     {
         if (playerCar == null ||
@@ -387,5 +392,10 @@ public class TreeSpawner : MonoBehaviour
     public static void StopSpawning()
     {
         spawningEnabled = false;
+    }
+
+    public static void ResetSpawning()
+    {
+        spawningEnabled = true;
     }
 }

@@ -79,6 +79,11 @@ public class NPCSpawner : MonoBehaviour
         spawningEnabled = true;
     }
 
+    private void Awake()
+    {
+        spawningEnabled = true;
+    }
+
     private void Start()
     {
         if (playerCar == null)
@@ -380,5 +385,10 @@ public class NPCSpawner : MonoBehaviour
     public static void StopSpawning()
     {
         spawningEnabled = false;
+    }
+
+    public static void ResetSpawning()
+    {
+        spawningEnabled = true;
     }
 }
