@@ -3564,6 +3564,8 @@ MonoBehaviour:
   acceleration: 30
   followStrength: 12
   swipeThresholdPixels: 60
+  steeringAreaMaxNormalizedX: 0.5
+  blockSteeringOverUI: 1
   steeringWheelPivot: {fileID: 838605000}
   maxSteeringAngle: 120
   steeringHoldDuration: 0.08
@@ -3571,6 +3573,11 @@ MonoBehaviour:
   steeringReturnSmoothTime: 0.12
   steeringAxis: {x: 0, y: 0, z: 1}
   invertSteering: 0
+  enableSteeringOutline: 1
+  outlineShader: {fileID: 4800000, guid: a087b52c3019414e9a0232019c19d44e, type: 3}
+  outlineColor: {r: 0.25, g: 1.4, b: 1.85, a: 1}
+  outlineWidth: 0.009
+  outlineFadeSpeed: 14
 --- !u!54 &923998251
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -4146,8 +4153,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd8ca458b018a6a448f50cb99ac6058b, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PhoneSwipeColorTest
-  swipeDistanceThreshold: 80
+  m_EditorClassIdentifier: Assembly-CSharp::PhoneFeedScrollController
+  dragStartDeadzone: 45
+  verticalAngleBias: 1.25
+  releaseCommitRatio: 0.25
+  autoCommitRatio: 0.65
+  quickFlickVelocity: 1600
+  snapAnimationSpeed: 14
   lockScreenFingerprint: {fileID: 1126732184}
   minigameTapCat: {fileID: 1413057208}
   minigameMath: {fileID: 1370536232}

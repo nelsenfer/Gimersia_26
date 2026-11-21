@@ -19,7 +19,7 @@ public static class PhoneUIBuilderEditor
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode) return;
 
-        PhoneSwipeColorTest phoneScreen = Object.FindFirstObjectByType<PhoneSwipeColorTest>();
+        PhoneFeedScrollController phoneScreen = Object.FindFirstObjectByType<PhoneFeedScrollController>();
         if (phoneScreen == null) return;
 
         // Jika benar-benar masih kosong belum ada child sama sekali, baru buatkan pertama kali
@@ -120,10 +120,10 @@ public static class PhoneUIBuilderEditor
     [MenuItem("Tools/Gimersia/Rebuild & Rapikan Posisi Semua UI Minigame")]
     public static void ManualRebuildPhoneUI()
     {
-        PhoneSwipeColorTest phoneScreen = Object.FindFirstObjectByType<PhoneSwipeColorTest>();
+        PhoneFeedScrollController phoneScreen = Object.FindFirstObjectByType<PhoneFeedScrollController>();
         if (phoneScreen == null)
         {
-            Debug.LogWarning("[Gimersia Phone Builder] Tidak ditemukan objek dengan komponen PhoneSwipeColorTest di scene aktif.");
+            Debug.LogWarning("[Gimersia Phone Builder] Tidak ditemukan objek dengan komponen PhoneFeedScrollController di scene aktif.");
             return;
         }
 

@@ -46,10 +46,19 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
     private float remainingTime = 0f;
     private bool isSessionFinished = false;
     private bool isInitializedForPlay = false;
+    private bool isGameplayPaused = false;
     private int caughtCount = 0;
     private float bowlNormalizedX = 0.5f;
 
     public Action<float> OnConsciousnessReward;
+
+    /// <summary>
+    /// Menjeda sementara timer & jatuhnya bakso saat reel sedang di-preview/scroll oleh user.
+    /// </summary>
+    public void SetGameplayPaused(bool paused)
+    {
+        isGameplayPaused = paused;
+    }
 
     public void AutoBindExistingUI()
     {
@@ -243,6 +252,7 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
         remainingTime = Mathf.Max(1f, gameDuration);
         isSessionFinished = false;
         isInitializedForPlay = true;
+        isGameplayPaused = false;
         spawnTimer = 0.25f;
         bowlNormalizedX = 0.5f;
 
@@ -278,7 +288,7 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
             ResetMinigame();
         }
 
-        if (isSessionFinished) return;
+        if (isGameplayPaused || isSessionFinished) return;
         if (playAreaRect == null || bowlRect == null) return;
 
         // Hitung mundur timer
@@ -344,13 +354,13 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        if (isSessionFinished) return;
+        if (isGameplayPaused || isSessionFinished) return;
         MoveBowlToPointer(eventData);
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (isSessionFinished) return;
+        if (isGameplayPaused || isSessionFinished) return;
         MoveBowlToPointer(eventData);
     }
 
