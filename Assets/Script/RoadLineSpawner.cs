@@ -9,9 +9,13 @@ public class RoadLineSpawner : MonoBehaviour
     [Header("Road Line Prefab")]
     [SerializeField] private GameObject linePrefab;
 
+    [Header("Prefab Rotation")]
+    [SerializeField] private Vector3 prefabRotationOffset =
+        new Vector3(90f, 0f, 0f);
+
     [Header("Road Position")]
-    [SerializeField] private float roadCenterX = -0.14f;
-    [SerializeField] private float lineHeight = 0.0125f;
+    [SerializeField] private float roadCenterX = -1.63f;
+    [SerializeField] private float lineHeight = 0.0725f;
 
     [Header("Line Pattern")]
     [SerializeField] private int lineCount = 20;
@@ -76,10 +80,18 @@ public class RoadLineSpawner : MonoBehaviour
 
         roadLines = new Transform[lineCount];
 
-        Quaternion lineRotation = Quaternion.LookRotation(
+        // Calculate road line rotation
+        Quaternion baseRotation = Quaternion.LookRotation(
             moveDirection,
             Vector3.up
         );
+
+        // Apply artist prefab rotation correction
+        Quaternion rotationOffset =
+            Quaternion.Euler(prefabRotationOffset);
+
+        Quaternion lineRotation =
+            baseRotation * rotationOffset;
 
         // Create initial road lines
         for (int i = 0; i < lineCount; i++)
@@ -141,7 +153,7 @@ public class RoadLineSpawner : MonoBehaviour
             );
         }
 
-        // Recycle only after a line has passed the player
+        // Recycle lines after passing the player
         foreach (Transform line in roadLines)
         {
             if (line == null)
@@ -154,7 +166,6 @@ public class RoadLineSpawner : MonoBehaviour
 
             if (distanceAhead < -recycleBehindDistance)
             {
-                // Place line after the furthest line
                 furthestDistance += lineSpacing;
 
                 Vector3 newPosition =

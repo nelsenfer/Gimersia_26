@@ -1488,10 +1488,10 @@ MonoBehaviour:
   moveSpeed: 12
   despawnDistance: 100
   moveOppositePlayerForward: 0
-  groundSurface: {fileID: 0}
+  groundSurface: {fileID: 978941397}
   groundLayers:
     serializedVersion: 2
-    m_Bits: 8
+    m_Bits: 0
   raycastStartHeight: 50
   raycastDistance: 200
   alignTreeToGround: 1
@@ -1680,7 +1680,7 @@ Light:
   serializedVersion: 12
   m_Type: 1
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 1.04
+  m_Intensity: 0.35
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -3557,8 +3557,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9def03b62bc5efb4b891b2793424d29f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CarController
-  roadCenterX: -0.14
-  laneOffset: 3
+  roadCenterX: -1.63
+  laneOffset: 1.17
   startingLane: 1
   laneChangeSpeed: 8
   acceleration: 30
@@ -3851,6 +3851,45 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 949280975}
   m_CullTransparentMesh: 1
+--- !u!1 &978941393 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 4b5a37c7d834e9e41921d826b83222d6, type: 3}
+  m_PrefabInstance: {fileID: 1992761738}
+  m_PrefabAsset: {fileID: 0}
+--- !u!64 &978941397
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 978941393}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 5410495187525036472, guid: 4b5a37c7d834e9e41921d826b83222d6, type: 3}
+--- !u!114 &978941398
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 978941393}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 59de50314500b9a40bb457271d428310, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RoadBoundsReporter
 --- !u!1 &1036663129
 GameObject:
   m_ObjectHideFlags: 0
@@ -5620,9 +5659,11 @@ MonoBehaviour:
   - {fileID: 919132149155446097, guid: a1beea292031b2c4b9af8f150f91e984, type: 3}
   - {fileID: 919132149155446097, guid: 8ebe8bd5c62095a41956ed9ba6dc4c36, type: 3}
   - {fileID: 919132149155446097, guid: 5c9ad10c0ea48cb4baf7b309967b330c, type: 3}
-  roadCenterX: -0.14
-  laneOffset: 3
+  roadCenterX: -1.63
+  laneOffset: 1.404
   spawnDistanceAhead: 90
+  minimumSpawnDistance: 5
+  spawnSearchStep: 1
   despawnBehindDistance: 35
   moveOppositePlayerForward: 0
   preSpawnOnStart: 1
@@ -5635,13 +5676,15 @@ MonoBehaviour:
   maxSpawnInterval: 4
   maxActiveNPCs: 6
   minSameLaneSeparation: 28
-  minCrossLaneGap: 16
+  minCrossLaneGap: 20
   spawnImmediately: 1
-  groundSurface: {fileID: 1955120863}
+  groundSurface: {fileID: 978941397}
   groundLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 8
   groundOffset: 0
+  raycastHeight: 30
+  raycastDistance: 100
 --- !u!4 &1647686847
 Transform:
   m_ObjectHideFlags: 0
@@ -6679,12 +6722,16 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 4b5a37c7d834e9e41921d826b83222d6, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.4
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4b5a37c7d834e9e41921d826b83222d6, type: 3}
       propertyPath: m_LocalPosition.x
       value: -1.63
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4b5a37c7d834e9e41921d826b83222d6, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.1
+      value: 0.05
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 4b5a37c7d834e9e41921d826b83222d6, type: 3}
       propertyPath: m_LocalPosition.z
@@ -6722,10 +6769,20 @@ PrefabInstance:
       propertyPath: m_Name
       value: Aspal 1
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4b5a37c7d834e9e41921d826b83222d6, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4b5a37c7d834e9e41921d826b83222d6, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 978941397}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4b5a37c7d834e9e41921d826b83222d6, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 978941398}
   m_SourcePrefab: {fileID: 100100000, guid: 4b5a37c7d834e9e41921d826b83222d6, type: 3}
 --- !u!1 &2001949350
 GameObject:
@@ -6758,8 +6815,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RoadLineSpawner
   playerCar: {fileID: -8679921383154817045, guid: f2f4ac28a5dd460498662711a30006f4, type: 3}
   linePrefab: {fileID: 919132149155446097, guid: 44fed5c718a5cdb4790d81181b3b26e2, type: 3}
-  roadCenterX: -0.14
-  lineHeight: 0.0125
+  prefabRotationOffset: {x: 90, y: 0, z: 0}
+  roadCenterX: -1.63
+  lineHeight: 0.0725
   lineCount: 20
   lineSpacing: 5
   startDistance: 8
@@ -6775,7 +6833,7 @@ Transform:
   m_GameObject: {fileID: 2001949350}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0, z: 0}
+  m_LocalPosition: {x: 0, y: -0, z: -10.38}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
