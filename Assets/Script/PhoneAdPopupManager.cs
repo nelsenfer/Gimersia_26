@@ -119,6 +119,8 @@ public class PhoneAdPopupManager : MonoBehaviour
         if (activeAdPopups.Count >= maxSimultaneousAds)
             return;
 
+        GameplayAudioManager.PlayAdPopup();
+
         // Posisi acak di dalam layar HP
         float width = Random.Range(0.72f, 0.84f);
         float height = Random.Range(0.32f, 0.40f);

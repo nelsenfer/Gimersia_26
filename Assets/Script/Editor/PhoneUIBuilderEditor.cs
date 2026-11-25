@@ -42,8 +42,32 @@ public static class PhoneUIBuilderEditor
         // Pastikan GameplayHUD_Canvas & ConsciousnessManager juga ada di Scene
         EnsureConsciousnessHUDExists();
 
+        // Pastikan GameplayAudioManager juga ada di Scene agar user bisa langsung drag & drop AudioClip di Inspector
+        EnsureAudioManagerExists();
+
         // Pastikan CameraPivot pas di titik pusat mata Main Camera (Scale 1,1,1)
         EnsureCameraPivotAligned();
+    }
+
+    [MenuItem("Tools/Gimersia/Buat atau Pilih GameplayAudioManager (Slot Audio & SFX)")]
+    public static void EnsureAudioManagerExists()
+    {
+        GameplayAudioManager audioMgr = Object.FindFirstObjectByType<GameplayAudioManager>();
+        if (audioMgr == null)
+        {
+            GameObject audioObj = new GameObject("GameplayAudioManager");
+            Undo.RegisterCreatedObjectUndo(audioObj, "Create GameplayAudioManager");
+            audioMgr = audioObj.AddComponent<GameplayAudioManager>();
+            audioMgr.AutoBindAudioClipsInEditor();
+            EditorUtility.SetDirty(audioObj);
+            EditorSceneManager.MarkSceneDirty(audioObj.scene);
+            Debug.Log("<color=lime>[Gimersia Audio]</color> GameplayAudioManager berhasil dibuat & ke-14 file SFX di Assets/Audio/SFX otomatis terpasang!");
+        }
+        else
+        {
+            audioMgr.AutoBindAudioClipsInEditor();
+            EditorUtility.SetDirty(audioMgr);
+        }
     }
 
     [MenuItem("Tools/Gimersia/Align Camera Pivot to Eye (Pusatkan Pivot Kamera)")]

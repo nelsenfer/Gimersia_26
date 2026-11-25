@@ -236,6 +236,7 @@ public class ConsciousnessManager : MonoBehaviour
 
             if (zeroConsciousnessTimer >= sleepGameOverDelay)
             {
+                GameplayAudioManager.PlayGameOverPanelOnly();
                 TriggerGameOver("TERTIDUR DI JALAN!", "Kesadaranmu habis selama 5 detik dan kamu tertidur saat menyetir.");
                 return;
             }
@@ -345,6 +346,7 @@ public class ConsciousnessManager : MonoBehaviour
     {
         isGameEnded = true;
         StopAllGameplaySystems();
+        GameplayAudioManager.PlayWinSequence();
         SetEyelidCoverage(0f, 0f);
         ResetHeadPivot();
 

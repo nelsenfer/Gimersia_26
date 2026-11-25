@@ -345,6 +345,7 @@ public class MinigameMath : MonoBehaviour
         if (index == correctButtonIndex)
         {
             correctCountInSession++;
+            GameplayAudioManager.PlayPhoneUnlockSuccess();
 
             if (answerButtons[index] != null)
                 answerButtons[index].GetComponent<Image>().color = correctButtonColor;
@@ -359,6 +360,8 @@ public class MinigameMath : MonoBehaviour
         }
         else
         {
+            GameplayAudioManager.PlayPhoneUnlockFailed();
+
             if (answerButtons[index] != null)
                 answerButtons[index].GetComponent<Image>().color = wrongButtonColor;
 

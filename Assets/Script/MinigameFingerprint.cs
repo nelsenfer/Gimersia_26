@@ -314,6 +314,8 @@ public class MinigameFingerprint : MonoBehaviour, IPointerDownHandler, IPointerU
         currentHoldTimer = 0f;
         UpdateProgressVisual(0f);
 
+        GameplayAudioManager.PlayPhoneUnlockFailed();
+
         if (resultOverlayPanel != null)
         {
             resultOverlayPanel.SetActive(true);
@@ -327,6 +329,8 @@ public class MinigameFingerprint : MonoBehaviour, IPointerDownHandler, IPointerU
         currentState = VerifyState.ShowingSuccess;
         stateTimer = successScreenDuration;
         UpdateProgressVisual(1f);
+
+        GameplayAudioManager.PlayPhoneUnlockSuccess();
 
         if (resultOverlayPanel != null)
         {

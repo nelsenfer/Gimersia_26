@@ -278,6 +278,8 @@ public class NPCSpawner : MonoBehaviour
             totalTravelDistance
         );
 
+        GameplayAudioManager.AttachNPCEngineAudio(npcObj);
+
         activeNPCs.Add(new ActiveNPC
         {
             obj = npcObj,

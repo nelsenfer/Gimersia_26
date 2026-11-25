@@ -110,6 +110,7 @@ public class CarController : MonoBehaviour
         }
 
         SetupCarLightingAndHorizonFog();
+        GameplayAudioManager.EnsureExists();
     }
 
     private void SetupCarLightingAndHorizonFog()
@@ -484,6 +485,8 @@ public class CarController : MonoBehaviour
 
         // Start automatic steering return timer
         steeringTimer = steeringHoldDuration;
+
+        GameplayAudioManager.PlayLaneChangeSwerve();
     }
 
     private void UpdateSteeringWheel()

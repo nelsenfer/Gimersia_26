@@ -74,12 +74,18 @@ public class CarCrashHandler : MonoBehaviour
             bool isGameOver = ConsciousnessManager.Instance.HandleCarCrash();
             if (!isGameOver)
             {
+                // Tabrakan biasa (masih ada sisa nyawa / rem mendadak) -> Crash.mp3
+                GameplayAudioManager.PlayNormalCrash();
+
                 // Rem mendadak berhasil! Hapus obstacle yang tertabrak & lanjut jalan
                 Destroy(obstacleRoot.gameObject);
                 StartCoroutine(CrashCooldownRoutine());
                 return;
             }
         }
+
+        // Tabrakan fatal (nyawa habis) -> CrashFinal.mp3 lalu GameOver.mp3
+        GameplayAudioManager.PlayFinalCrashAndGameOver();
 
         hasCrashed = true;
 

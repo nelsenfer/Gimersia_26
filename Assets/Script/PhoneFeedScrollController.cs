@@ -320,6 +320,7 @@ public class PhoneFeedScrollController : MonoBehaviour
         {
             minigameTapCat.OnConsciousnessReward = (amount) =>
             {
+                GameplayAudioManager.PlayPhoneTap();
                 AddConsciousnessReward(amount);
                 if (adPopupManager != null) adPopupManager.NotifyPlayerInteractionTap();
             };
@@ -338,6 +339,7 @@ public class PhoneFeedScrollController : MonoBehaviour
         {
             minigameBakso.OnConsciousnessReward = (amount) =>
             {
+                GameplayAudioManager.PlayPhoneTap();
                 AddConsciousnessReward(amount);
             };
         }
@@ -495,6 +497,7 @@ public class PhoneFeedScrollController : MonoBehaviour
         }
 
         scrollState = ScrollState.SnappingToNext;
+        GameplayAudioManager.PlayReelSwipe();
         SetReelRaycastsEnabled(currentMinigameIndex, false);
         SetReelRaycastsEnabled(candidateNextIndex, false);
         UpdateTopStatusBar("▲ Swipe Naik Ganti Reel ▲");
