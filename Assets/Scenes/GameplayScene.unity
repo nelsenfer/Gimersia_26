@@ -16,10 +16,10 @@ RenderSettings:
   serializedVersion: 10
   m_Fog: 1
   m_FogColor: {r: 0.8490566, g: 0.6629252, b: 0.5566928, a: 1}
-  m_FogMode: 3
-  m_FogDensity: 0.02
-  m_LinearFogStart: 0
-  m_LinearFogEnd: 300
+  m_FogMode: 1
+  m_FogDensity: 0.015
+  m_LinearFogStart: 42
+  m_LinearFogEnd: 105
   m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
   m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
@@ -1960,13 +1960,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 495918880}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.000000029602841, y: 0.9999497, z: -0.010033444, w: 0.0000029502817}
-  m_LocalPosition: {x: 0.574, y: 0.368, z: -0.09}
+  m_LocalRotation: {x: 0, y: 0.9978589, z: -0.06540313, w: 0}
+  m_LocalPosition: {x: 0.58, y: 0.18, z: -1.18}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 923998252}
-  m_LocalEulerAnglesHint: {x: 1.15, y: 180, z: 0}
+  m_LocalEulerAnglesHint: {x: 7.5, y: 180, z: 0}
 --- !u!114 &495918882
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2006,14 +2006,14 @@ Light:
   m_Enabled: 1
   serializedVersion: 12
   m_Type: 0
-  m_Color: {r: 0.8207547, g: 0.67321974, b: 0.36004803, a: 1}
-  m_Intensity: 2000
-  m_Range: 400
-  m_SpotAngle: 43.755558
-  m_InnerSpotAngle: 35.557644
+  m_Color: {r: 1, g: 0.93, b: 0.8, a: 1}
+  m_Intensity: 2500
+  m_Range: 115
+  m_SpotAngle: 68
+  m_InnerSpotAngle: 44
   m_CookieSize2D: {x: 0.5, y: 0.5}
   m_Shadows:
-    m_Type: 2
+    m_Type: 0
     m_Resolution: -1
     m_CustomResolution: -1
     m_Strength: 1
@@ -2245,13 +2245,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 524002176}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.000000029602841, y: 0.9999497, z: -0.010033444, w: 0.0000029502817}
-  m_LocalPosition: {x: -0.627, y: 0.368, z: -0.09}
+  m_LocalRotation: {x: 0, y: 0.9978589, z: -0.06540313, w: 0}
+  m_LocalPosition: {x: -0.63, y: 0.18, z: -1.18}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 923998252}
-  m_LocalEulerAnglesHint: {x: 1.15, y: 180, z: 0}
+  m_LocalEulerAnglesHint: {x: 7.5, y: 180, z: 0}
 --- !u!114 &524002178
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2291,14 +2291,14 @@ Light:
   m_Enabled: 1
   serializedVersion: 12
   m_Type: 0
-  m_Color: {r: 0.8207547, g: 0.67321974, b: 0.36004803, a: 1}
-  m_Intensity: 2000
-  m_Range: 400
-  m_SpotAngle: 43.755558
-  m_InnerSpotAngle: 35.557644
+  m_Color: {r: 1, g: 0.93, b: 0.8, a: 1}
+  m_Intensity: 2500
+  m_Range: 115
+  m_SpotAngle: 68
+  m_InnerSpotAngle: 44
   m_CookieSize2D: {x: 0.5, y: 0.5}
   m_Shadows:
-    m_Type: 2
+    m_Type: 0
     m_Resolution: -1
     m_CustomResolution: -1
     m_Strength: 1
@@ -3578,6 +3578,15 @@ MonoBehaviour:
   outlineColor: {r: 0.25, g: 1.4, b: 1.85, a: 1}
   outlineWidth: 0.009
   outlineFadeSpeed: 14
+  configureLightingAndFogOnStart: 1
+  headlightColor: {r: 1, g: 0.93, b: 0.8, a: 1}
+  headlightIntensity: 2500
+  headlightRange: 115
+  headlightPitchDown: 7.5
+  cabinBounceIntensity: 1.15
+  cabinBounceRange: 2.2
+  linearFogStart: 42
+  linearFogEnd: 105
 --- !u!54 &923998251
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -5661,15 +5670,15 @@ MonoBehaviour:
   - {fileID: 919132149155446097, guid: 5c9ad10c0ea48cb4baf7b309967b330c, type: 3}
   roadCenterX: -1.63
   laneOffset: 1.404
-  spawnDistanceAhead: 90
+  spawnDistanceAhead: 160
   minimumSpawnDistance: 5
   spawnSearchStep: 1
   despawnBehindDistance: 35
   moveOppositePlayerForward: 0
-  preSpawnOnStart: 1
+  preSpawnOnStart: 0
   initialSpawnDistances:
-  - 35
-  - 60
+  - 75
+  - 120
   playerSpeed: 20
   npcForwardSpeed: 7
   minSpawnInterval: 2
@@ -6124,6 +6133,14 @@ MonoBehaviour:
   thresholdBuffer: 0.03
   moveSpeed: 8
   rotationSpeed: 8
+  enableScreenLight: 1
+  screenLight: {fileID: 0}
+  screenLightColor: {r: 0.68, g: 0.85, b: 1, a: 1}
+  idleLightIntensity: 1.15
+  focusLightIntensity: 2
+  screenLightRange: 1.35
+  screenSpotAngle: 52
+  screenInnerSpotAngle: 22
 --- !u!1 &1839201539
 GameObject:
   m_ObjectHideFlags: 0

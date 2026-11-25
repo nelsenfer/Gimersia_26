@@ -34,7 +34,20 @@ public class Phone3DController : MonoBehaviour
     [Tooltip("Kecepatan perpindahan rotasi")]
     [SerializeField] private float rotationSpeed = 8f;
 
+    [Header("Cahaya Layar HP (Mengarah ke POV User)")]
+    [SerializeField] private bool enableScreenLight = true;
+    [SerializeField] private Light screenLight;
+    [SerializeField] private Color screenLightColor = new Color(0.68f, 0.85f, 1.0f, 1.0f);
+    [SerializeField] private float idleLightIntensity = 0.9f;
+    [SerializeField] private float focusLightIntensity = 1.6f;
+    [SerializeField] private float screenLightRange = 0.85f;
+    [Range(25f, 95f)]
+    [SerializeField] private float screenSpotAngle = 52f;
+    [Range(10f, 80f)]
+    [SerializeField] private float screenInnerSpotAngle = 22f;
+
     private bool isFocused;
+    private Transform cachedScreenTransform;
 
     /// <summary>
     /// Apakah saat ini HP sedang berada dalam mode fokus (diangkat mendekat)?
@@ -57,12 +70,114 @@ public class Phone3DController : MonoBehaviour
             transform.localPosition = idlePoint.localPosition;
             transform.localRotation = idlePoint.localRotation;
         }
+
+        EnsureScreenLightInitialized();
     }
 
     private void Update()
     {
         CheckFocusInput();
         AnimatePhone();
+        UpdateScreenLight();
+    }
+
+    private void EnsureScreenLightInitialized()
+    {
+        if (!enableScreenLight)
+        {
+            if (screenLight != null) screenLight.enabled = false;
+            return;
+        }
+
+        Canvas phoneCanvas = GetComponentInChildren<Canvas>(true);
+        if (phoneCanvas != null)
+        {
+            cachedScreenTransform = phoneCanvas.transform;
+        }
+
+        if (screenLight == null)
+        {
+            Transform existing = transform.Find("PhoneScreenLight");
+            if (existing != null)
+            {
+                screenLight = existing.GetComponent<Light>();
+            }
+        }
+
+        if (screenLight == null)
+        {
+            GameObject lightObj = new GameObject("PhoneScreenLight");
+            lightObj.transform.SetParent(transform, false);
+            screenLight = lightObj.AddComponent<Light>();
+        }
+
+        screenLight.type = LightType.Spot;
+        screenLight.color = screenLightColor;
+        screenLight.range = screenLightRange;
+        screenLight.spotAngle = screenSpotAngle;
+        screenLight.innerSpotAngle = Mathf.Min(screenInnerSpotAngle, screenSpotAngle);
+        screenLight.intensity = idleLightIntensity;
+        screenLight.shadows = LightShadows.Soft;
+        screenLight.enabled = true;
+
+        AimScreenLightToUserPOV();
+    }
+
+    private void AimScreenLightToUserPOV()
+    {
+        if (screenLight == null) return;
+
+        Vector3 screenPos = cachedScreenTransform != null
+            ? cachedScreenTransform.position
+            : transform.TransformPoint(new Vector3(-0.032f, 0.342f, 0.714f));
+
+        Vector3 toPov = Vector3.back;
+        if (Camera.main != null)
+        {
+            Vector3 diff = Camera.main.transform.position - screenPos;
+            if (diff.sqrMagnitude > 0.0001f)
+            {
+                toPov = diff.normalized;
+            }
+        }
+
+        Vector3 outwardNormal = toPov;
+        if (cachedScreenTransform != null)
+        {
+            outwardNormal = cachedScreenTransform.forward;
+            if (Vector3.Dot(outwardNormal, toPov) < 0f)
+            {
+                outwardNormal = -outwardNormal;
+            }
+        }
+
+        // Taruh tepat 1.5 cm di depan kaca layar dan arahkan sorotan kerucut (Spot) langsung ke arah POV user
+        Vector3 aimDirection = Vector3.Slerp(outwardNormal, toPov, 0.7f).normalized;
+        screenLight.transform.position = screenPos + outwardNormal * 0.015f;
+        screenLight.transform.rotation = Quaternion.LookRotation(aimDirection, Vector3.up);
+    }
+
+    private void UpdateScreenLight()
+    {
+        if (screenLight == null) return;
+
+        if (!enableScreenLight)
+        {
+            if (screenLight.enabled) screenLight.enabled = false;
+            return;
+        }
+
+        if (!screenLight.enabled) screenLight.enabled = true;
+
+        AimScreenLightToUserPOV();
+
+        float targetIntensity = isFocused ? focusLightIntensity : idleLightIntensity;
+        screenLight.type = LightType.Spot;
+        screenLight.color = screenLightColor;
+        screenLight.range = screenLightRange;
+        screenLight.spotAngle = screenSpotAngle;
+        screenLight.innerSpotAngle = Mathf.Min(screenInnerSpotAngle, screenSpotAngle);
+        screenLight.intensity = Mathf.Lerp(screenLight.intensity, targetIntensity, Time.deltaTime * moveSpeed);
     }
 
     /// <summary>

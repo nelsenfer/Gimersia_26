@@ -47,6 +47,20 @@ public class CarController : MonoBehaviour
     [SerializeField] private float outlineWidth = 0.009f;
     [SerializeField] private float outlineFadeSpeed = 14f;
 
+    [Header("Lampu Mobil, Pantulan Kabin & Kabut Ujung Jalan")]
+    [SerializeField] private bool configureLightingAndFogOnStart = true;
+    [SerializeField] private Color headlightColor = new Color(1.0f, 0.93f, 0.80f, 1.0f);
+    [SerializeField] private float headlightIntensity = 2500f;
+    [SerializeField] private float headlightRange = 115f;
+    [SerializeField] private float headlightPitchDown = 7.5f;
+    [Tooltip("Pantulan cahaya lampu depan yang masuk lewat kaca depan menyinari dashboard & setir secara natural")]
+    [SerializeField] private float cabinBounceIntensity = 1.15f;
+    [SerializeField] private float cabinBounceRange = 2.2f;
+    [Tooltip("Jarak mulai muncul kabut (0 - nilai ini jalanan bersih tanpa kabut)")]
+    [SerializeField] private float linearFogStart = 42f;
+    [Tooltip("Jarak kabut tertutup 100% (mobil NPC spawn di luar jarak ini agar muncul perlahan dari kabut)")]
+    [SerializeField] private float linearFogEnd = 105f;
+
     private static readonly int OutlineColorId = Shader.PropertyToID("_OutlineColor");
     private static readonly int OutlineWidthId = Shader.PropertyToID("_OutlineWidth");
 
@@ -94,6 +108,73 @@ public class CarController : MonoBehaviour
             initialWheelRotation = steeringWheelPivot.localRotation;
             InitializeSteeringOutline();
         }
+
+        SetupCarLightingAndHorizonFog();
+    }
+
+    private void SetupCarLightingAndHorizonFog()
+    {
+        if (!configureLightingAndFogOnStart) return;
+
+        // 1. Atur Linear Fog di ujung jalan agar area dekat mobil jernih dan ujung jalan tertutup kabut tebal
+        RenderSettings.fog = true;
+        RenderSettings.fogMode = FogMode.Linear;
+        RenderSettings.fogStartDistance = Mathf.Max(5f, linearFogStart);
+        RenderSettings.fogEndDistance = Mathf.Max(RenderSettings.fogStartDistance + 15f, linearFogEnd);
+
+        // 2. Rapikan posisi & sorotan kedua Lampu Mobil agar berada di depan bumper (tidak terhalang mesh kap mobil sendiri)
+        Light[] childLights = GetComponentsInChildren<Light>(true);
+        for (int i = 0; i < childLights.Length; i++)
+        {
+            Light l = childLights[i];
+            if (l == null || !l.gameObject.name.Contains("Lampu mobil")) continue;
+
+            Vector3 localPos = l.transform.localPosition;
+            // Majukan ke depan moncong mobil (z = -1.18) jika masih terkubur di belakang kap (z > -0.8)
+            if (localPos.z > -0.8f)
+            {
+                localPos.z = -1.18f;
+                localPos.y = 0.18f;
+                l.transform.localPosition = localPos;
+            }
+
+            l.transform.localRotation = Quaternion.Euler(headlightPitchDown, 180f, 0f);
+            l.type = LightType.Spot;
+            l.color = headlightColor;
+            l.intensity = headlightIntensity;
+            l.range = headlightRange;
+            l.spotAngle = 68f;
+            l.innerSpotAngle = 44f;
+            l.shadows = LightShadows.None;
+        }
+
+        // 3. Tambahkan Cabin Headlight Bounce Light (pantulan lembut cahaya lampu mobil dari jalan/kap yang masuk lewat kaca depan ke kabin)
+        Transform bounceTf = transform.Find("CabinHeadlightBounceLight");
+        if (bounceTf == null)
+        {
+            GameObject bounceObj = new GameObject("CabinHeadlightBounceLight");
+            bounceObj.transform.SetParent(transform, false);
+            bounceTf = bounceObj.transform;
+        }
+
+        // Posisi tepat di area kaca depan menghadap masuk ke arah dashboard & setir (+Z lokal Car Root)
+        bounceTf.localPosition = new Vector3(0f, 0.42f, -0.35f);
+        bounceTf.localRotation = Quaternion.Euler(14f, 0f, 0f);
+
+        Light bounceLight = bounceTf.GetComponent<Light>();
+        if (bounceLight == null)
+        {
+            bounceLight = bounceTf.gameObject.AddComponent<Light>();
+        }
+
+        bounceLight.type = LightType.Spot;
+        bounceLight.color = headlightColor;
+        bounceLight.intensity = cabinBounceIntensity;
+        bounceLight.range = cabinBounceRange;
+        bounceLight.spotAngle = 108f;
+        bounceLight.innerSpotAngle = 55f;
+        bounceLight.shadows = LightShadows.None;
+        bounceLight.enabled = true;
     }
 
     private void OnDisable()
