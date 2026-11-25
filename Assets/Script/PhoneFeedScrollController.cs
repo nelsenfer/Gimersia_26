@@ -3,6 +3,9 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 /// <summary>
 /// Master Controller Layar Smartphone (Vertical Feed Scroll ala Reels/TikTok & 4 Minigame):
@@ -57,6 +60,12 @@ public class PhoneFeedScrollController : MonoBehaviour
     [SerializeField] private MinigameBakso minigameBakso;
     [SerializeField] private PhoneAdPopupManager adPopupManager;
     [SerializeField] private Text topStatusBarText;
+
+    [Header("Overlay UI FYP (Muncul Setelah Konfirmasi Sidik Jari)")]
+    [Tooltip("Otomatis terisi dari Assets/Sprite/Ingame/UI.png")]
+    [SerializeField] private Image fypOverlayImage;
+    [SerializeField] private Sprite fypOverlaySprite;
+    [SerializeField] private Texture2D fypOverlayTexture;
 
     [Header("Status Permainan (Debug / Integrasi Kesadaran)")]
     [SerializeField] private bool isUnlocked = false;
@@ -136,6 +145,23 @@ public class PhoneFeedScrollController : MonoBehaviour
             if (t != null) adPopupManager = t.GetComponent<PhoneAdPopupManager>();
             if (adPopupManager == null) adPopupManager = GetComponentInChildren<PhoneAdPopupManager>(true);
         }
+
+        if (fypOverlayImage == null)
+        {
+            Transform t = transform.Find("FYP_UI_Overlay");
+            if (t != null) fypOverlayImage = t.GetComponent<Image>();
+        }
+
+#if UNITY_EDITOR
+        if (fypOverlaySprite == null)
+        {
+            fypOverlaySprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/Ingame/UI.png");
+        }
+        if (fypOverlayTexture == null)
+        {
+            fypOverlayTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Sprite/Ingame/UI.png");
+        }
+#endif
     }
 
     [ContextMenu("Build / Rebuild Phone Minigames UI")]
@@ -226,6 +252,9 @@ public class PhoneFeedScrollController : MonoBehaviour
         }
         minigameBakso.BuildPlaceholderUI();
 
+        // 4.5. Overlay UI FYP (Assets/Sprite/Ingame/UI.png - muncul setelah unlock sidik jari)
+        EnsureFypOverlayBuilt();
+
         // 5. Lock Screen Awal: Verifikasi Sidik Jari
         if (lockScreenFingerprint == null)
         {
@@ -239,6 +268,7 @@ public class PhoneFeedScrollController : MonoBehaviour
             lockScreenFingerprint = rt.gameObject.AddComponent<MinigameFingerprint>();
         }
         lockScreenFingerprint.BuildPlaceholderUI();
+        lockScreenFingerprint.transform.SetAsLastSibling();
 
         // 6. Layer Pop-Up Iklan
         if (adPopupManager == null)
@@ -254,6 +284,65 @@ public class PhoneFeedScrollController : MonoBehaviour
         }
         adPopupManager.BuildPlaceholderUI();
         adPopupManager.transform.SetAsLastSibling();
+    }
+
+    private void EnsureFypOverlayBuilt()
+    {
+        if (fypOverlayImage == null)
+        {
+            Transform existing = transform.Find("FYP_UI_Overlay");
+            if (existing != null)
+            {
+                fypOverlayImage = existing.GetComponent<Image>();
+            }
+        }
+
+        if (fypOverlayImage == null)
+        {
+            RectTransform overlayRt = PhoneUIHelper.CreatePanel(
+                "FYP_UI_Overlay",
+                transform,
+                Color.white,
+                Vector2.zero,
+                Vector2.one
+            );
+            fypOverlayImage = overlayRt.GetComponent<Image>();
+        }
+
+        Sprite resolvedSprite = ResolveFypOverlaySprite();
+        if (resolvedSprite != null)
+        {
+            fypOverlayImage.sprite = resolvedSprite;
+            fypOverlayImage.color = Color.white;
+        }
+        else
+        {
+            // Jika sprite belum dimuat, buat transparan agar tidak menutupi layar dengan kotak putih
+            fypOverlayImage.color = new Color(1f, 1f, 1f, 0f);
+        }
+
+        fypOverlayImage.raycastTarget = false;
+        fypOverlayImage.preserveAspect = false;
+        fypOverlayImage.transform.SetAsLastSibling();
+    }
+
+    private Sprite ResolveFypOverlaySprite()
+    {
+        if (fypOverlaySprite != null)
+            return fypOverlaySprite;
+
+        if (fypOverlayTexture != null)
+        {
+            fypOverlaySprite = Sprite.Create(
+                fypOverlayTexture,
+                new Rect(0f, 0f, fypOverlayTexture.width, fypOverlayTexture.height),
+                new Vector2(0.5f, 0.5f),
+                100f
+            );
+            return fypOverlaySprite;
+        }
+
+        return null;
     }
 
     private void OnValidate()
@@ -732,6 +821,12 @@ public class PhoneFeedScrollController : MonoBehaviour
 
         if (adPopupManager != null) adPopupManager.ClearAllAds();
 
+        // Sembunyikan UI.png selama masih di layar kunci Sidik Jari
+        if (fypOverlayImage != null)
+        {
+            fypOverlayImage.gameObject.SetActive(false);
+        }
+
         if (lockScreenFingerprint != null)
         {
             lockScreenFingerprint.gameObject.SetActive(true);
@@ -746,6 +841,17 @@ public class PhoneFeedScrollController : MonoBehaviour
         isUnlocked = true;
         if (lockScreenFingerprint != null)
             lockScreenFingerprint.gameObject.SetActive(false);
+
+        // Munculkan UI.png tepat setelah konfirmasi Sidik Jari berhasil
+        if (fypOverlayImage != null)
+        {
+            EnsureFypOverlayBuilt();
+            if (adPopupManager != null)
+            {
+                adPopupManager.transform.SetAsLastSibling();
+            }
+            fypOverlayImage.gameObject.SetActive(true);
+        }
 
         AddConsciousnessReward(5f);
 
