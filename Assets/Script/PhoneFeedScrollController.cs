@@ -59,6 +59,7 @@ public class PhoneFeedScrollController : MonoBehaviour
     [SerializeField] private MinigameMath minigameMath;
     [SerializeField] private MinigameBakso minigameBakso;
     [SerializeField] private PhoneAdPopupManager adPopupManager;
+    [SerializeField] private PhoneWifeChatEvent wifeChatEvent;
     [SerializeField] private Text topStatusBarText;
 
     [Header("Overlay UI FYP (Muncul Setelah Konfirmasi Sidik Jari)")]
@@ -144,6 +145,13 @@ public class PhoneFeedScrollController : MonoBehaviour
             Transform t = transform.Find("PopupIklan_Layer");
             if (t != null) adPopupManager = t.GetComponent<PhoneAdPopupManager>();
             if (adPopupManager == null) adPopupManager = GetComponentInChildren<PhoneAdPopupManager>(true);
+        }
+
+        if (wifeChatEvent == null)
+        {
+            Transform t = transform.Find("WifeChat_EventLayer");
+            if (t != null) wifeChatEvent = t.GetComponent<PhoneWifeChatEvent>();
+            if (wifeChatEvent == null) wifeChatEvent = GetComponentInChildren<PhoneWifeChatEvent>(true);
         }
 
         if (fypOverlayImage == null)
@@ -269,6 +277,21 @@ public class PhoneFeedScrollController : MonoBehaviour
         }
         lockScreenFingerprint.BuildPlaceholderUI();
         lockScreenFingerprint.transform.SetAsLastSibling();
+
+        // 5.5. Layer Event Sekali: Balas Chat Istri (Notif bertumpuk + Ruang Chat QWERTY)
+        if (wifeChatEvent == null)
+        {
+            RectTransform rt = PhoneUIHelper.CreatePanel(
+                "WifeChat_EventLayer",
+                transform,
+                new Color(0f, 0f, 0f, 0f),
+                new Vector2(0f, 0f),
+                new Vector2(1f, 0.92f)
+            );
+            wifeChatEvent = rt.gameObject.AddComponent<PhoneWifeChatEvent>();
+        }
+        wifeChatEvent.BuildPlaceholderUI();
+        wifeChatEvent.transform.SetAsLastSibling();
 
         // 6. Layer Pop-Up Iklan
         if (adPopupManager == null)
@@ -430,6 +453,21 @@ public class PhoneFeedScrollController : MonoBehaviour
             {
                 GameplayAudioManager.PlayPhoneTap();
                 AddConsciousnessReward(amount);
+            };
+        }
+
+        if (wifeChatEvent != null)
+        {
+            wifeChatEvent.OnChatCompletedReward = (amount) =>
+            {
+                AddConsciousnessReward(amount);
+            };
+            wifeChatEvent.OnChatWindowStateChanged = (isOpen) =>
+            {
+                if (currentMinigameIndex == 2)
+                {
+                    SetMinigamePaused(2, isOpen);
+                }
             };
         }
     }
@@ -753,6 +791,7 @@ public class PhoneFeedScrollController : MonoBehaviour
     {
         if (!isUnlocked) return false;
         if (adPopupManager != null && adPopupManager.HasActiveAds) return false;
+        if (wifeChatEvent != null && wifeChatEvent.IsChatWindowOpen) return false;
         if (ConsciousnessManager.Instance != null && ConsciousnessManager.Instance.IsGameEnded) return false;
         return true;
     }
@@ -820,6 +859,7 @@ public class PhoneFeedScrollController : MonoBehaviour
         }
 
         if (adPopupManager != null) adPopupManager.ClearAllAds();
+        if (wifeChatEvent != null && wifeChatEvent.isActiveAndEnabled) wifeChatEvent.ResetEventForNewGame();
 
         // Sembunyikan UI.png selama masih di layar kunci Sidik Jari
         if (fypOverlayImage != null)
@@ -846,11 +886,20 @@ public class PhoneFeedScrollController : MonoBehaviour
         if (fypOverlayImage != null)
         {
             EnsureFypOverlayBuilt();
+            if (wifeChatEvent != null)
+            {
+                wifeChatEvent.transform.SetAsLastSibling();
+            }
             if (adPopupManager != null)
             {
                 adPopupManager.transform.SetAsLastSibling();
             }
             fypOverlayImage.gameObject.SetActive(true);
+        }
+
+        if (wifeChatEvent != null && wifeChatEvent.isActiveAndEnabled)
+        {
+            wifeChatEvent.NotifyPhoneUnlocked();
         }
 
         AddConsciousnessReward(5f);
