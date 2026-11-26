@@ -24,7 +24,9 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
     [SerializeField] private float fallSpeedNormalized = 0.52f;
 
     [Tooltip("Tambahan kesadaran di balik layar setiap menangkap 1 bakso")]
-    [SerializeField] private float consciousnessPerBakso = 3.0f;
+    [SerializeField] private float consciousnessPerBakso = 1.0f;
+    [Tooltip("Bonus kesadaran saat waktu habis jika berhasil menangkap minimal 5 bakso")]
+    [SerializeField] private float sessionCompleteBonus = 3.0f;
 
     [Header("Referensi UI")]
     [SerializeField] private Image backgroundPanel;
@@ -318,6 +320,11 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
         isSessionFinished = true;
         ClearAllBaksos();
 
+        if (caughtCount >= 5)
+        {
+            OnConsciousnessReward?.Invoke(sessionCompleteBonus);
+        }
+
         // 1. Tampilkan hasil di teks atas (yang sudah pasti terlihat di layar)
         if (instructionText != null)
         {
@@ -345,7 +352,7 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
 
             if (resultOverlayText != null)
             {
-                resultOverlayText.text = $"⏱ WAKTU HABIS!\n\nKAMU DAPAT:\n{caughtCount} BAKSO\n\n(Swipe naik ganti Reel)";
+                resultOverlayText.text = $"⏱ WAKTU HABIS!\n\nKAMU DAPAT:\n{caughtCount} BAKSO";
             }
         }
 

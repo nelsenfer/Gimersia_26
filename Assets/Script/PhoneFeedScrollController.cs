@@ -58,6 +58,7 @@ public class PhoneFeedScrollController : MonoBehaviour
     [SerializeField] private MinigameTapCat minigameTapCat;
     [SerializeField] private MinigameMath minigameMath;
     [SerializeField] private MinigameBakso minigameBakso;
+    [SerializeField] private MinigameOsu minigameOsu;
     [SerializeField] private PhoneAdPopupManager adPopupManager;
     [SerializeField] private PhoneWifeChatEvent wifeChatEvent;
     [SerializeField] private Text topStatusBarText;
@@ -73,7 +74,7 @@ public class PhoneFeedScrollController : MonoBehaviour
     [SerializeField] private int currentMinigameIndex = -1;
     [SerializeField] private float totalDopamineEarned = 0f;
 
-    private const int ReelCount = 3;
+    private const int ReelCount = 4;
 
     private RectTransform selfRect;
     private Canvas parentCanvas;
@@ -131,6 +132,14 @@ public class PhoneFeedScrollController : MonoBehaviour
             if (minigameBakso == null) minigameBakso = GetComponentInChildren<MinigameBakso>(true);
         }
         if (minigameBakso != null) minigameBakso.AutoBindExistingUI();
+
+        if (minigameOsu == null)
+        {
+            Transform t = transform.Find("Reel_4_OsuRhythm");
+            if (t != null) minigameOsu = t.GetComponent<MinigameOsu>();
+            if (minigameOsu == null) minigameOsu = GetComponentInChildren<MinigameOsu>(true);
+        }
+        if (minigameOsu != null) minigameOsu.AutoBindExistingUI();
 
         if (lockScreenFingerprint == null)
         {
@@ -259,6 +268,32 @@ public class PhoneFeedScrollController : MonoBehaviour
             minigameBakso = rt.gameObject.AddComponent<MinigameBakso>();
         }
         minigameBakso.BuildPlaceholderUI();
+
+        // 4.2. Minigame 4: Rhythm Tap & Slider ala osu!
+        if (minigameOsu == null)
+        {
+            RectTransform rt = PhoneUIHelper.CreatePanel(
+                "Reel_4_OsuRhythm",
+                transform,
+                new Color(0.09f, 0.07f, 0.16f, 1f),
+                new Vector2(0f, 0f),
+                new Vector2(1f, 0.92f)
+            );
+            // Samakan anchoredPosition awal dengan Reel_1 jika Reel_1 sudah diatur manual di scene
+            if (minigameTapCat != null)
+            {
+                RectTransform refRt = minigameTapCat.GetComponent<RectTransform>();
+                if (refRt != null)
+                {
+                    rt.anchorMin = refRt.anchorMin;
+                    rt.anchorMax = refRt.anchorMax;
+                    rt.anchoredPosition = refRt.anchoredPosition;
+                    rt.sizeDelta = refRt.sizeDelta;
+                }
+            }
+            minigameOsu = rt.gameObject.AddComponent<MinigameOsu>();
+        }
+        minigameOsu.BuildPlaceholderUI();
 
         // 4.5. Overlay UI FYP (Assets/Sprite/Ingame/UI.png - muncul setelah unlock sidik jari)
         EnsureFypOverlayBuilt();
@@ -397,7 +432,8 @@ public class PhoneFeedScrollController : MonoBehaviour
         {
             minigameTapCat,
             minigameMath,
-            minigameBakso
+            minigameBakso,
+            minigameOsu
         };
 
         for (int i = 0; i < ReelCount; i++)
@@ -456,6 +492,15 @@ public class PhoneFeedScrollController : MonoBehaviour
             };
         }
 
+        if (minigameOsu != null)
+        {
+            minigameOsu.OnConsciousnessReward = (amount) =>
+            {
+                AddConsciousnessReward(amount);
+                if (adPopupManager != null) adPopupManager.NotifyPlayerInteractionTap();
+            };
+        }
+
         if (wifeChatEvent != null)
         {
             wifeChatEvent.OnChatCompletedReward = (amount) =>
@@ -464,9 +509,9 @@ public class PhoneFeedScrollController : MonoBehaviour
             };
             wifeChatEvent.OnChatWindowStateChanged = (isOpen) =>
             {
-                if (currentMinigameIndex == 2)
+                if (currentMinigameIndex == 2 || currentMinigameIndex == 3)
                 {
-                    SetMinigamePaused(2, isOpen);
+                    SetMinigamePaused(currentMinigameIndex, isOpen);
                 }
             };
         }
@@ -521,7 +566,12 @@ public class PhoneFeedScrollController : MonoBehaviour
 
                 if (scrollState == ScrollState.Idle && !dragIntentLockedHorizontal)
                 {
-                    if (Mathf.Abs(totalDelta.x) >= dragStartDeadzone &&
+                    if (currentMinigameIndex == 3 && minigameOsu != null && minigameOsu.IsDraggingSlider)
+                    {
+                        // Pemain sedang aktif menarik bola Slider osu!, jangan bajak jadi scroll reel
+                        dragIntentLockedHorizontal = true;
+                    }
+                    else if (Mathf.Abs(totalDelta.x) >= dragStartDeadzone &&
                         Mathf.Abs(totalDelta.x) > Mathf.Abs(totalDelta.y) * 1.15f)
                     {
                         // Gerakan awal dominan horizontal (misal geser mangkok Bakso), kunci agar tidak jadi scroll
@@ -551,13 +601,9 @@ public class PhoneFeedScrollController : MonoBehaviour
                         dragIntentLockedHorizontal = false;
                         BeginSnapToNext();
                     }
-                    else if (currentDragOffsetY >= activeSlideHeight * releaseCommitRatio)
-                    {
-                        UpdateTopStatusBar("✔ Lepas / Teruskan -> Ganti Reel");
-                    }
                     else
                     {
-                        UpdateTopStatusBar("▲ Tarik Naik untuk Ganti Reel ▲");
+                        UpdateTopStatusBar("");
                     }
                 }
             }
@@ -627,7 +673,7 @@ public class PhoneFeedScrollController : MonoBehaviour
         GameplayAudioManager.PlayReelSwipe();
         SetReelRaycastsEnabled(currentMinigameIndex, false);
         SetReelRaycastsEnabled(candidateNextIndex, false);
-        UpdateTopStatusBar("▲ Swipe Naik Ganti Reel ▲");
+        UpdateTopStatusBar("");
     }
 
     private void BeginSnapBack()
@@ -638,7 +684,7 @@ public class PhoneFeedScrollController : MonoBehaviour
         {
             SetReelRaycastsEnabled(candidateNextIndex, false);
         }
-        UpdateTopStatusBar("▲ Swipe Naik Ganti Reel ▲");
+        UpdateTopStatusBar("");
     }
 
     private void UpdateSnapAnimations()
@@ -698,7 +744,7 @@ public class PhoneFeedScrollController : MonoBehaviour
             SetMinigamePaused(newIndex, false);
         }
 
-        UpdateTopStatusBar("▲ Swipe Naik Ganti Reel ▲");
+        UpdateTopStatusBar("");
 
         if (adPopupManager != null)
         {
@@ -727,7 +773,7 @@ public class PhoneFeedScrollController : MonoBehaviour
         candidateNextIndex = -1;
         currentDragOffsetY = 0f;
         scrollState = ScrollState.Idle;
-        UpdateTopStatusBar("▲ Swipe Naik Ganti Reel ▲");
+        UpdateTopStatusBar("");
     }
 
     private void PrepareCandidateReel(int index, float slideHeight)
@@ -944,7 +990,7 @@ public class PhoneFeedScrollController : MonoBehaviour
             }
         }
 
-        UpdateTopStatusBar("▲ Swipe Naik Ganti Reel ▲");
+        UpdateTopStatusBar("");
 
         if (!firstOpen && adPopupManager != null)
         {
@@ -974,6 +1020,9 @@ public class PhoneFeedScrollController : MonoBehaviour
             case 2:
                 if (minigameBakso != null) minigameBakso.ResetMinigame();
                 break;
+            case 3:
+                if (minigameOsu != null) minigameOsu.ResetMinigame();
+                break;
         }
     }
 
@@ -982,6 +1031,10 @@ public class PhoneFeedScrollController : MonoBehaviour
         if (index == 2 && minigameBakso != null)
         {
             minigameBakso.SetGameplayPaused(paused);
+        }
+        else if (index == 3 && minigameOsu != null)
+        {
+            minigameOsu.SetGameplayPaused(paused);
         }
     }
 
@@ -1010,6 +1063,7 @@ public class PhoneFeedScrollController : MonoBehaviour
             case 0: return minigameTapCat;
             case 1: return minigameMath;
             case 2: return minigameBakso;
+            case 3: return minigameOsu;
             default: return null;
         }
     }
@@ -1019,11 +1073,20 @@ public class PhoneFeedScrollController : MonoBehaviour
         if (adPopupManager != null && adPopupManager.HasActiveAds)
             return;
 
-        totalDopamineEarned += amount;
-
-        if (ConsciousnessManager.Instance != null)
+        if (amount > 0f)
         {
-            ConsciousnessManager.Instance.AddConsciousness(amount);
+            totalDopamineEarned += amount;
+            if (ConsciousnessManager.Instance != null)
+            {
+                ConsciousnessManager.Instance.AddConsciousness(amount);
+            }
+        }
+        else if (amount < 0f)
+        {
+            if (ConsciousnessManager.Instance != null)
+            {
+                ConsciousnessManager.Instance.ReduceConsciousness(-amount);
+            }
         }
     }
 

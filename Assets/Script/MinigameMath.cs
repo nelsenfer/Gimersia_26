@@ -356,7 +356,8 @@ public class MinigameMath : MonoBehaviour
                 feedbackText.color = new Color(0.3f, 1f, 0.5f);
             }
 
-            OnConsciousnessReward?.Invoke(8.0f);
+            // Reward per jawaban benar +2.5%
+            OnConsciousnessReward?.Invoke(2.5f);
         }
         else
         {
@@ -373,6 +374,9 @@ public class MinigameMath : MonoBehaviour
                 feedbackText.text = $"❌ SALAH! Jawaban: {correctAnswer}";
                 feedbackText.color = new Color(1f, 0.45f, 0.45f);
             }
+
+            // Penalti salah jawab (-3% Kesadaran karena pusing/bete)
+            OnConsciousnessReward?.Invoke(-3.0f);
         }
     }
 
@@ -380,6 +384,12 @@ public class MinigameMath : MonoBehaviour
     {
         isQuizFinished = true;
         SetButtonsInteractable(false);
+
+        // Bonus selesai 3 soal jika berhasil menjawab benar minimal 2 soal
+        if (correctCountInSession >= 2)
+        {
+            OnConsciousnessReward?.Invoke(3.5f);
+        }
 
         if (headerText != null)
         {
@@ -393,7 +403,7 @@ public class MinigameMath : MonoBehaviour
 
         if (feedbackText != null)
         {
-            feedbackText.text = "Swipe ke atas untuk ganti Reel!";
+            feedbackText.text = "";
             feedbackText.color = new Color(1f, 0.88f, 0.35f);
         }
 

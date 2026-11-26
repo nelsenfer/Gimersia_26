@@ -20,9 +20,14 @@ public class ConsciousnessManager : MonoBehaviour
 
     [Header("Pengaturan Kesadaran (0 - 100)")]
     [SerializeField] private float maxConsciousness = 100f;
-    [SerializeField] private float startingConsciousness = 100f;
-    [Tooltip("Pengurangan kesadaran otomatis per detik")]
+    [SerializeField] private float startingConsciousness = 75f;
+    [Tooltip("Pengurangan kesadaran otomatis per detik di awal perjalanan (-1/detik)")]
     [SerializeField] private float passiveDrainPerSecond = 1.0f;
+    [Tooltip("Pengurangan kesadaran otomatis per detik setelah melewati setengah perjalanan (-2/detik)")]
+    [SerializeField] private float midJourneyDrainPerSecond = 2.0f;
+    [Tooltip("Proporsi sisa jarak tempuh saat drain naik (0.5 = setengah perjalanan)")]
+    [Range(0.1f, 0.9f)]
+    [SerializeField] private float midJourneyDistanceRatio = 0.5f;
     [Tooltip("Batas kesadaran kritis (penalti tabrakan jadi 2 nyawa)")]
     [SerializeField] private float criticalThreshold = 20f;
     [Tooltip("Durasi kesadaran 0 sebelum tertidur (Game Over)")]
@@ -225,8 +230,11 @@ public class ConsciousnessManager : MonoBehaviour
     {
         if (isGameEnded) return;
 
-        // 1. Penurunan kesadaran pasif (-1/detik)
-        currentConsciousness = Mathf.Max(0f, currentConsciousness - passiveDrainPerSecond * Time.deltaTime);
+        // 1. Penurunan kesadaran pasif (-1/detik di awal, naik menjadi -2/detik setelah setengah perjalanan)
+        bool isPastMidJourney = startingDistanceKm > 0.01f &&
+                                (remainingDistanceKm <= startingDistanceKm * midJourneyDistanceRatio);
+        float activeDrainRate = isPastMidJourney ? midJourneyDrainPerSecond : passiveDrainPerSecond;
+        currentConsciousness = Mathf.Max(0f, currentConsciousness - activeDrainRate * Time.deltaTime);
 
         // 2. Cek kondisi tertidur (0 selama 5 detik berturut-turut)
         if (currentConsciousness <= 0.01f)

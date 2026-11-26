@@ -142,7 +142,7 @@ public class MinigameTapCat : MonoBehaviour
             statusHintText = PhoneUIHelper.CreateText(
                 "Hint_Text",
                 transform,
-                "Ketuk kucing cepat-cepat!\n(Swipe ke atas untuk ganti Reel)",
+                "Ketuk kucing cepat-cepat!",
                 new Color(0.8f, 0.8f, 0.9f),
                 new Vector2(0.08f, 0.08f),
                 new Vector2(0.92f, 0.20f),
@@ -215,13 +215,14 @@ public class MinigameTapCat : MonoBehaviour
         }
 
         currentTaps++;
-        OnConsciousnessReward?.Invoke(1.0f);
+        // Micro-reward tipis per tap (+0.2% untuk menahan kantuk), dan bonus utama (+6%) cair saat 20/20 selesai
+        OnConsciousnessReward?.Invoke(0.2f);
 
         if (!missionCompleted && currentTaps >= targetTapCount)
         {
             missionCompleted = true;
-            OnConsciousnessReward?.Invoke(10.0f);
-            Debug.Log("<color=lime>[Tap the Cat]</color> Misi 20 Tap Selesai! Tap berikutnya hanya animasi tanpa tambah kesadaran.");
+            OnConsciousnessReward?.Invoke(6.0f);
+            Debug.Log("<color=lime>[Tap the Cat]</color> Misi 20 Tap Selesai! Bonus dopamin +6%.");
         }
 
         UpdateMissionText();
@@ -280,6 +281,11 @@ public class MinigameTapCat : MonoBehaviour
         if (missionTitleText != null)
         {
             missionTitleText.text = $"🐱 MISI: TAP KUCING {targetTapCount} KALI!";
+        }
+
+        if (statusHintText != null)
+        {
+            statusHintText.text = "Ketuk kucing cepat-cepat!";
         }
 
         if (counterText != null)
