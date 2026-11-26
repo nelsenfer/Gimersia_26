@@ -3446,8 +3446,8 @@ MonoBehaviour:
   gameDuration: 10
   spawnInterval: 0.85
   fallSpeedNormalized: 0.48
-  consciousnessPerBakso: 1
-  sessionCompleteBonus: 3
+  consciousnessPerBakso: 0.6
+  sessionCompleteBonus: 2.5
   backgroundPanel: {fileID: 317142492}
   instructionText: {fileID: 1306353994}
   scoreAndTimerText: {fileID: 656412872}
@@ -6978,29 +6978,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5ea11d75893faae42985081afa2f687e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ConsciousnessManager
-  maxConsciousness: 100
-  startingConsciousness: 75
+  maxConsciousness: 20
+  startingConsciousness: 20
   passiveDrainPerSecond: 1
   midJourneyDrainPerSecond: 2
   midJourneyDistanceRatio: 0.5
-  criticalThreshold: 20
+  criticalThreshold: 4
   sleepGameOverDelay: 5
-  drowsyStartThreshold: 30
-  microsleepThreshold: 30
+  drowsyStartThreshold: 10
+  microsleepThreshold: 6
   minMicrosleepDuration: 0.35
   maxMicrosleepDuration: 0.75
   minMicrosleepCooldown: 2
   maxMicrosleepCooldown: 4.2
   headPivotTransform: {fileID: 0}
-  headNodStartThreshold: 20
+  headNodStartThreshold: 10
   maxNodPitchAngle: 7
   maxNodRollAngle: 3.5
-  blurStartThreshold: 50
+  blurStartThreshold: 10
   maxBlurRadius: 1.25
   maxVignetteIntensity: 0.68
   maxLives: 3
-  crashAdrenalineBonus: 40
-  startingDistanceKm: 5
+  crashAdrenalineBonus: 10
+  startingDistanceKm: 1.5
   distanceSpeedKmPerSec: 0.025
   consciousnessFillRect: {fileID: 2023821868}
   consciousnessFillImage: {fileID: 2023821866}

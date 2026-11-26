@@ -53,6 +53,14 @@ public class PhoneFeedScrollController : MonoBehaviour
     [Tooltip("Kecepatan animasi snap menuju konten baru atau kembali ke konten sebelumnya")]
     [SerializeField] private float snapAnimationSpeed = 14f;
 
+    [Header("Jeda Buffering Setiap Ganti Reel (3 - 5 Detik)")]
+    [Tooltip("Apakah setiap kali ganti Reel baru ada jeda buffering/loading singkat agar pemain fokus jalan dulu")]
+    [SerializeField] private bool enableReelBufferingCooldown = true;
+    [SerializeField] private float minReelBufferDuration = 3.0f;
+    [SerializeField] private float maxReelBufferDuration = 5.0f;
+    [SerializeField] private GameObject reelBufferOverlayPanel;
+    [SerializeField] private Text reelBufferOverlayText;
+
     [Header("Referensi Modul Layar HP (Otomatis Terhubung)")]
     [SerializeField] private MinigameFingerprint lockScreenFingerprint;
     [SerializeField] private MinigameTapCat minigameTapCat;
@@ -95,6 +103,9 @@ public class PhoneFeedScrollController : MonoBehaviour
     private Vector2 lastDragLocalPos;
     private float dragScrollOriginLocalY;
     private float dragVelocityY = 0f;
+
+    private bool isReelBuffering = false;
+    private float reelBufferTimer = 0f;
 
     private readonly List<RaycastResult> raycastResults = new List<RaycastResult>();
 
@@ -519,8 +530,112 @@ public class PhoneFeedScrollController : MonoBehaviour
 
     private void Update()
     {
+        UpdateReelBufferingCooldown();
         UpdateScrollInteraction();
         UpdateSnapAnimations();
+    }
+
+    private void UpdateReelBufferingCooldown()
+    {
+        if (!isReelBuffering) return;
+
+        reelBufferTimer -= Time.deltaTime;
+        if (reelBufferTimer > 0f)
+        {
+            if (reelBufferOverlayText != null)
+            {
+                reelBufferOverlayText.text = $"⏳ MEMUAT REEL...\n{reelBufferTimer:F1}s";
+            }
+        }
+        else
+        {
+            EndReelBufferingCooldown();
+        }
+    }
+
+    private void StartReelBufferingCooldown()
+    {
+        if (!enableReelBufferingCooldown) return;
+
+        EnsureReelBufferOverlayBuilt();
+        isReelBuffering = true;
+        reelBufferTimer = Random.Range(
+            Mathf.Min(minReelBufferDuration, maxReelBufferDuration),
+            Mathf.Max(minReelBufferDuration, maxReelBufferDuration)
+        );
+
+        if (currentMinigameIndex >= 0)
+        {
+            SetMinigamePaused(currentMinigameIndex, true);
+            SetReelRaycastsEnabled(currentMinigameIndex, false);
+        }
+
+        if (reelBufferOverlayPanel != null)
+        {
+            reelBufferOverlayPanel.SetActive(true);
+            // Taruh di atas Reel tapi di bawah FYP_UI_Overlay, WifeChat, dan PopupIklan
+            reelBufferOverlayPanel.transform.SetAsLastSibling();
+            if (fypOverlayImage != null) fypOverlayImage.transform.SetAsLastSibling();
+            if (wifeChatEvent != null) wifeChatEvent.transform.SetAsLastSibling();
+            if (adPopupManager != null) adPopupManager.transform.SetAsLastSibling();
+        }
+    }
+
+    private void EndReelBufferingCooldown()
+    {
+        isReelBuffering = false;
+        reelBufferTimer = 0f;
+
+        if (reelBufferOverlayPanel != null)
+        {
+            reelBufferOverlayPanel.SetActive(false);
+        }
+
+        if (currentMinigameIndex >= 0)
+        {
+            SetReelRaycastsEnabled(currentMinigameIndex, true);
+            bool pauseForWifeChat = wifeChatEvent != null && wifeChatEvent.IsChatWindowOpen;
+            SetMinigamePaused(currentMinigameIndex, pauseForWifeChat);
+        }
+    }
+
+    private void EnsureReelBufferOverlayBuilt()
+    {
+        if (reelBufferOverlayPanel == null)
+        {
+            Transform existing = transform.Find("Reel_Buffering_Overlay");
+            if (existing != null) reelBufferOverlayPanel = existing.gameObject;
+        }
+
+        if (reelBufferOverlayPanel == null)
+        {
+            RectTransform rt = PhoneUIHelper.CreatePanel(
+                "Reel_Buffering_Overlay",
+                transform,
+                new Color(0.03f, 0.04f, 0.07f, 0.90f),
+                new Vector2(0f, 0f),
+                new Vector2(1f, 0.92f)
+            );
+            rt.GetComponent<Image>().raycastTarget = true;
+            reelBufferOverlayPanel = rt.gameObject;
+
+            reelBufferOverlayText = PhoneUIHelper.CreateText(
+                "Buffer_Text",
+                rt,
+                "⏳ MEMUAT REEL...\n3.5s",
+                new Color(0.75f, 0.92f, 1f, 1f),
+                new Vector2(0.08f, 0.30f),
+                new Vector2(0.92f, 0.70f),
+                TextAnchor.MiddleCenter,
+                160
+            );
+
+            reelBufferOverlayPanel.SetActive(false);
+        }
+        else if (reelBufferOverlayText == null)
+        {
+            reelBufferOverlayText = reelBufferOverlayPanel.GetComponentInChildren<Text>(true);
+        }
     }
 
     private void UpdateScrollInteraction()
@@ -746,6 +861,9 @@ public class PhoneFeedScrollController : MonoBehaviour
 
         UpdateTopStatusBar("");
 
+        // Aktifkan jeda buffering 3 - 5 detik setiap kali berpindah ke Reel baru
+        StartReelBufferingCooldown();
+
         if (adPopupManager != null)
         {
             adPopupManager.NotifyReelChanged();
@@ -823,19 +941,61 @@ public class PhoneFeedScrollController : MonoBehaviour
         return 1000f;
     }
 
-    private int PickNextRandomMinigameIndex()
+    private int GetActiveLevelNumber()
     {
-        if (currentMinigameIndex < 0)
+        if (ConsciousnessManager.Instance != null)
         {
-            return Random.Range(0, ReelCount);
+            return ConsciousnessManager.Instance.CurrentLevel;
+        }
+        return 1;
+    }
+
+    private int GetAllowedReelCountForCurrentLevel()
+    {
+        // Level 1 hanya memunculkan 2 minigame pertama (0: Tap the Cat, 1: Kuis MTK)
+        // Level 2 & Level 3 memunculkan seluruh 4 minigame (+ Tangkap Bakso & osu!)
+        int level = GetActiveLevelNumber();
+        return level <= 1 ? 2 : ReelCount;
+    }
+
+    public void ApplyLevelRulesToPhone(int levelNumber)
+    {
+        if (adPopupManager != null)
+        {
+            // Level 1 tanpa iklan; Level 2 & Level 3 iklan aktif
+            adPopupManager.SetAdsEnabled(levelNumber >= 2);
         }
 
-        return (currentMinigameIndex + Random.Range(1, ReelCount)) % ReelCount;
+        if (wifeChatEvent != null && wifeChatEvent.isActiveAndEnabled)
+        {
+            wifeChatEvent.ResetEventForNewGame();
+        }
+    }
+
+    public void TriggerWifeChatMilestoneIfEligible()
+    {
+        if (wifeChatEvent != null && wifeChatEvent.isActiveAndEnabled)
+        {
+            wifeChatEvent.TriggerWifeChatByDistanceMilestone();
+        }
+    }
+
+    private int PickNextRandomMinigameIndex()
+    {
+        int allowedCount = Mathf.Clamp(GetAllowedReelCountForCurrentLevel(), 2, ReelCount);
+
+        if (currentMinigameIndex < 0 || currentMinigameIndex >= allowedCount)
+        {
+            return Random.Range(0, allowedCount);
+        }
+
+        return (currentMinigameIndex + Random.Range(1, allowedCount)) % allowedCount;
     }
 
     private bool CanInteractWithFeed()
     {
         if (!isUnlocked) return false;
+        if (isReelBuffering) return false;
         if (adPopupManager != null && adPopupManager.HasActiveAds) return false;
         if (wifeChatEvent != null && wifeChatEvent.IsChatWindowOpen) return false;
         if (ConsciousnessManager.Instance != null && ConsciousnessManager.Instance.IsGameEnded) return false;
@@ -907,6 +1067,10 @@ public class PhoneFeedScrollController : MonoBehaviour
         if (adPopupManager != null) adPopupManager.ClearAllAds();
         if (wifeChatEvent != null && wifeChatEvent.isActiveAndEnabled) wifeChatEvent.ResetEventForNewGame();
 
+        isReelBuffering = false;
+        reelBufferTimer = 0f;
+        if (reelBufferOverlayPanel != null) reelBufferOverlayPanel.SetActive(false);
+
         // Sembunyikan UI.png selama masih di layar kunci Sidik Jari
         if (fypOverlayImage != null)
         {
@@ -948,7 +1112,8 @@ public class PhoneFeedScrollController : MonoBehaviour
             wifeChatEvent.NotifyPhoneUnlocked();
         }
 
-        AddConsciousnessReward(5f);
+        // Skala Max 20: Bonus kecil +1.5 saat berhasil membuka kunci Sidik Jari
+        AddConsciousnessReward(1.5f);
 
         SwitchToNextRandomMinigame(firstOpen: true);
     }

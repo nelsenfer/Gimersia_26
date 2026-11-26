@@ -18,9 +18,9 @@ public class ConsciousnessManager : MonoBehaviour
 {
     public static ConsciousnessManager Instance { get; private set; }
 
-    [Header("Pengaturan Kesadaran (0 - 100)")]
-    [SerializeField] private float maxConsciousness = 100f;
-    [SerializeField] private float startingConsciousness = 75f;
+    [Header("Pengaturan Kesadaran (Skala 0 - 20, Ngantuk di 10)")]
+    [SerializeField] private float maxConsciousness = 20f;
+    [SerializeField] private float startingConsciousness = 20f;
     [Tooltip("Pengurangan kesadaran otomatis per detik di awal perjalanan (-1/detik)")]
     [SerializeField] private float passiveDrainPerSecond = 1.0f;
     [Tooltip("Pengurangan kesadaran otomatis per detik setelah melewati setengah perjalanan (-2/detik)")]
@@ -28,16 +28,16 @@ public class ConsciousnessManager : MonoBehaviour
     [Tooltip("Proporsi sisa jarak tempuh saat drain naik (0.5 = setengah perjalanan)")]
     [Range(0.1f, 0.9f)]
     [SerializeField] private float midJourneyDistanceRatio = 0.5f;
-    [Tooltip("Batas kesadaran kritis (penalti tabrakan jadi 2 nyawa)")]
-    [SerializeField] private float criticalThreshold = 20f;
+    [Tooltip("Batas kesadaran kritis (penalti tabrakan jadi 2 nyawa & bunyi detak jantung)")]
+    [SerializeField] private float criticalThreshold = 4f;
     [Tooltip("Durasi kesadaran 0 sebelum tertidur (Game Over)")]
     [SerializeField] private float sleepGameOverDelay = 5.0f;
 
     [Header("Efek Ngantuk 1: Kelopak Mata & Microsleep")]
-    [Tooltip("Kesadaran di bawah nilai ini kelopak mata mulai terasa berat")]
-    [SerializeField] private float drowsyStartThreshold = 50f;
+    [Tooltip("Kesadaran di bawah nilai ini kelopak mata mulai terasa berat (Default: 10)")]
+    [SerializeField] private float drowsyStartThreshold = 10f;
     [Tooltip("Kesadaran di bawah nilai ini mulai terjadi Microsleep (mata menutup rapat sesaat)")]
-    [SerializeField] private float microsleepThreshold = 30f;
+    [SerializeField] private float microsleepThreshold = 6f;
     [SerializeField] private float minMicrosleepDuration = 0.35f;
     [SerializeField] private float maxMicrosleepDuration = 0.75f;
     [SerializeField] private float minMicrosleepCooldown = 1.8f;
@@ -46,25 +46,35 @@ public class ConsciousnessManager : MonoBehaviour
     [Header("Efek Ngantuk 2: Kepala Terkulai (Head Nodding)")]
     [Tooltip("Transform Pivot Kepala (otomatis dibuat tepat di posisi mata Main Camera)")]
     [SerializeField] private Transform headPivotTransform;
-    [Tooltip("Kesadaran di bawah nilai ini kepala mulai terkulai")]
-    [SerializeField] private float headNodStartThreshold = 45f;
+    [Tooltip("Kesadaran di bawah nilai ini kepala mulai terkulai (Default: 10)")]
+    [SerializeField] private float headNodStartThreshold = 10f;
     [Tooltip("Sudut maksimal kepala menunduk ke bawah (derajat)")]
     [SerializeField] private float maxNodPitchAngle = 7f;
     [Tooltip("Sudut maksimal kepala miring ke samping (derajat)")]
     [SerializeField] private float maxNodRollAngle = 3.5f;
 
     [Header("Efek Ngantuk 3: Blur & Vignette (URP Global Volume)")]
-    [SerializeField] private float blurStartThreshold = 50f;
+    [SerializeField] private float blurStartThreshold = 10f;
     [SerializeField] private float maxBlurRadius = 1.25f;
     [SerializeField] private float maxVignetteIntensity = 0.68f;
 
     [Header("Pengaturan Nyawa & Tabrakan")]
     [SerializeField] private int maxLives = 3;
     [Tooltip("Lonjakan kesadaran saat kaget/rem mendadak menabrak")]
-    [SerializeField] private float crashAdrenalineBonus = 40f;
+    [SerializeField] private float crashAdrenalineBonus = 10f;
+
+    [Header("Pengaturan Level & Progresi (Level 1 - 3)")]
+    [Tooltip("Level saat ini (1 = 1.5 KM & 2 Minigame, 2 = 3.0 KM & 4 Minigame + Iklan, 3 = 5.0 KM + Iklan + Chat Istri setelah 3 KM)")]
+    [Range(1, 3)]
+    [SerializeField] private int currentLevel = 1;
+    [SerializeField] private float level1DistanceKm = 1.5f;
+    [SerializeField] private float level2DistanceKm = 3.0f;
+    [SerializeField] private float level3DistanceKm = 5.0f;
+    [Tooltip("Jarak tempuh (KM) di Level 3 sebelum Event Chat Istri muncul (default: setelah menempuh 3.0 KM)")]
+    [SerializeField] private float level3WifeChatTriggerTraveledKm = 3.0f;
 
     [Header("Pengaturan Jarak Tempuh (Win Condition)")]
-    [SerializeField] private float startingDistanceKm = 2.0f;
+    [SerializeField] private float startingDistanceKm = 1.5f;
     [Tooltip("Kecepatan pengurangan jarak tempuh (KM per detik)")]
     [SerializeField] private float distanceSpeedKmPerSec = 0.025f;
 
@@ -82,12 +92,28 @@ public class ConsciousnessManager : MonoBehaviour
     [SerializeField] private Text endGameTitleText;
     [SerializeField] private Text endGameDetailText;
     [SerializeField] private Button restartButton;
+    [SerializeField] private Text restartButtonLabel;
+    [SerializeField] private Button homeButton;
+    [SerializeField] private Text homeButtonLabel;
+    [SerializeField] private Button nextLevelButton;
+    [SerializeField] private Text nextLevelButtonLabel;
+
+    // Menyimpan level yang dipilih saat transisi "Level Selanjutnya" / "Home"
+    private static int pendingLevelOverride = -1;
 
     private float currentConsciousness;
     private int currentLives;
     private float remainingDistanceKm;
     private float zeroConsciousnessTimer;
     private bool isGameEnded = false;
+    private bool wifeChatMilestoneTriggered = false;
+    private PhoneFeedScrollController phoneController;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticLevelOverride()
+    {
+        pendingLevelOverride = -1;
+    }
 
     // State Microsleep
     private bool isMicrosleeping = false;
@@ -112,6 +138,7 @@ public class ConsciousnessManager : MonoBehaviour
     public float CurrentConsciousness => currentConsciousness;
     public int CurrentLives => currentLives;
     public bool IsGameEnded => isGameEnded;
+    public int CurrentLevel => Mathf.Clamp(currentLevel, 1, 3);
 
     private void Awake()
     {
@@ -122,10 +149,37 @@ public class ConsciousnessManager : MonoBehaviour
         }
         Instance = this;
 
+        if (pendingLevelOverride >= 1 && pendingLevelOverride <= 3)
+        {
+            currentLevel = pendingLevelOverride;
+            pendingLevelOverride = -1;
+        }
+        else
+        {
+            currentLevel = Mathf.Clamp(currentLevel, 1, 3);
+        }
+
+        ApplyCurrentLevelSettings();
         ResetAllGameplaySystems();
         EnsureHUDCreated();
         InitHeadPivot();
         InitPostProcessingBlur();
+    }
+
+    private void ApplyCurrentLevelSettings()
+    {
+        switch (CurrentLevel)
+        {
+            case 1:
+                startingDistanceKm = Mathf.Max(0.1f, level1DistanceKm);
+                break;
+            case 2:
+                startingDistanceKm = Mathf.Max(0.1f, level2DistanceKm);
+                break;
+            case 3:
+                startingDistanceKm = Mathf.Max(0.1f, level3DistanceKm);
+                break;
+        }
     }
 
     private void InitHeadPivot()
@@ -201,11 +255,19 @@ public class ConsciousnessManager : MonoBehaviour
 
     private void Start()
     {
+        ApplyCurrentLevelSettings();
         currentConsciousness = Mathf.Clamp(startingConsciousness, 0f, maxConsciousness);
         currentLives = maxLives;
         remainingDistanceKm = startingDistanceKm;
         zeroConsciousnessTimer = 0f;
         isGameEnded = false;
+        wifeChatMilestoneTriggered = false;
+
+        phoneController = FindFirstObjectByType<PhoneFeedScrollController>();
+        if (phoneController != null)
+        {
+            phoneController.ApplyLevelRulesToPhone(CurrentLevel);
+        }
 
         isMicrosleeping = false;
         nextMicrosleepCountdown = Random.Range(minMicrosleepCooldown, maxMicrosleepCooldown);
@@ -217,13 +279,29 @@ public class ConsciousnessManager : MonoBehaviour
         if (endGamePanel != null)
             endGamePanel.SetActive(false);
 
+        BindEndScreenButtons();
+        UpdateAllHUD();
+    }
+
+    private void BindEndScreenButtons()
+    {
         if (restartButton != null)
         {
             restartButton.onClick.RemoveAllListeners();
             restartButton.onClick.AddListener(RestartLevel);
         }
 
-        UpdateAllHUD();
+        if (homeButton != null)
+        {
+            homeButton.onClick.RemoveAllListeners();
+            homeButton.onClick.AddListener(GoToHomeOrLevel1);
+        }
+
+        if (nextLevelButton != null)
+        {
+            nextLevelButton.onClick.RemoveAllListeners();
+            nextLevelButton.onClick.AddListener(LoadNextLevel);
+        }
     }
 
     private void Update()
@@ -256,6 +334,25 @@ public class ConsciousnessManager : MonoBehaviour
 
         // 3. Hitung mundur jarak tempuh ke rumah
         remainingDistanceKm = Mathf.Max(0f, remainingDistanceKm - distanceSpeedKmPerSec * Time.deltaTime);
+
+        // Khusus Level 3: Picu Event Chat Istri setelah menempuh 3.0 KM perjalanan (saat sisa jarak <= 2.0 KM dari 5.0 KM)
+        if (!wifeChatMilestoneTriggered && CurrentLevel == 3)
+        {
+            float distanceTraveledKm = startingDistanceKm - remainingDistanceKm;
+            if (distanceTraveledKm >= level3WifeChatTriggerTraveledKm)
+            {
+                wifeChatMilestoneTriggered = true;
+                if (phoneController == null)
+                {
+                    phoneController = FindFirstObjectByType<PhoneFeedScrollController>();
+                }
+                if (phoneController != null)
+                {
+                    phoneController.TriggerWifeChatMilestoneIfEligible();
+                }
+            }
+        }
+
         if (remainingDistanceKm <= 0f)
         {
             TriggerWin();
@@ -279,7 +376,7 @@ public class ConsciousnessManager : MonoBehaviour
         }
 
         // Saat dapat dopamin besar / kaget, hentikan microsleep & sentak kepala balik sadar
-        if (amount >= 8f)
+        if (amount >= 2.5f)
         {
             isMicrosleeping = false;
             isSnappingHeadUp = true;
@@ -343,11 +440,13 @@ public class ConsciousnessManager : MonoBehaviour
             }
             if (endGameDetailText != null)
             {
-                endGameDetailText.text = $"{detail}\n\nSisa Jarak: {remainingDistanceKm:F2} KM";
+                endGameDetailText.text = $"Level {CurrentLevel}  |  {detail}\n\nSisa Jarak: {remainingDistanceKm:F2} KM";
             }
+
+            ConfigureEndScreenButtons(isWin: false);
         }
 
-        Debug.LogWarning($"[GAME OVER] {title} - {detail}");
+        Debug.LogWarning($"[GAME OVER - LEVEL {CurrentLevel}] {title} - {detail}");
     }
 
     private void TriggerWin()
@@ -363,16 +462,69 @@ public class ConsciousnessManager : MonoBehaviour
             endGamePanel.SetActive(true);
             if (endGameTitleText != null)
             {
-                endGameTitleText.text = "🏠 SELAMAT SAMPAI RUMAH!";
+                endGameTitleText.text = CurrentLevel < 3
+                    ? $"🏠 LEVEL {CurrentLevel} SELESAI!"
+                    : "🏠 SELAMAT SAMPAI RUMAH!";
                 endGameTitleText.color = new Color(0.35f, 1f, 0.55f);
             }
             if (endGameDetailText != null)
             {
-                endGameDetailText.text = $"Kamu berhasil bertahan mengemudi hingga 0.00 KM!\nSisa Nyawa: {currentLives}/{maxLives}";
+                endGameDetailText.text = $"Level {CurrentLevel} ({startingDistanceKm:F1} KM) berhasil dilewati!\nSisa Nyawa: {currentLives}/{maxLives}";
             }
+
+            ConfigureEndScreenButtons(isWin: true);
         }
 
-        Debug.Log("<color=lime>[MENANG]</color> Berhasil sampai rumah (0.00 KM)!");
+        Debug.Log($"<color=lime>[MENANG LEVEL {CurrentLevel}]</color> Berhasil menyelesaikan {startingDistanceKm:F1} KM!");
+    }
+
+    private void ConfigureEndScreenButtons(bool isWin)
+    {
+        EnsureEndScreenButtonsBuilt();
+        BindEndScreenButtons();
+
+        if (homeButton != null)
+        {
+            homeButton.gameObject.SetActive(true);
+            if (homeButtonLabel != null) homeButtonLabel.text = "HOME";
+        }
+
+        if (isWin)
+        {
+            if (CurrentLevel < 3)
+            {
+                // Menang Level 1 atau 2 -> Tampilkan 2 tombol: [ HOME ] dan [ LEVEL SELANJUTNYA ]
+                if (restartButton != null) restartButton.gameObject.SetActive(false);
+                if (nextLevelButton != null)
+                {
+                    nextLevelButton.gameObject.SetActive(true);
+                    if (nextLevelButtonLabel != null)
+                    {
+                        nextLevelButtonLabel.text = $"LEVEL {CurrentLevel + 1} ➔";
+                    }
+                }
+            }
+            else
+            {
+                // Tamat Level 3 -> Tampilkan [ HOME ] dan [ MAIN LAGI ]
+                if (nextLevelButton != null) nextLevelButton.gameObject.SetActive(false);
+                if (restartButton != null)
+                {
+                    restartButton.gameObject.SetActive(true);
+                    if (restartButtonLabel != null) restartButtonLabel.text = "MAIN LAGI";
+                }
+            }
+        }
+        else
+        {
+            // Kalah (Game Over) -> Tampilkan [ HOME ] dan [ COBA LAGI (RESTART) ]
+            if (nextLevelButton != null) nextLevelButton.gameObject.SetActive(false);
+            if (restartButton != null)
+            {
+                restartButton.gameObject.SetActive(true);
+                if (restartButtonLabel != null) restartButtonLabel.text = "COBA LAGI";
+            }
+        }
     }
 
     private void StopAllGameplaySystems()
@@ -397,8 +549,35 @@ public class ConsciousnessManager : MonoBehaviour
 
     public void RestartLevel()
     {
+        pendingLevelOverride = CurrentLevel;
         ResetAllGameplaySystems();
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    public void LoadNextLevel()
+    {
+        int nextLvl = Mathf.Clamp(CurrentLevel + 1, 1, 3);
+        pendingLevelOverride = nextLvl;
+        ResetAllGameplaySystems();
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    public void GoToHomeOrLevel1()
+    {
+        ResetAllGameplaySystems();
+        // Jika ada scene MainMenu di Build Settings (index 0 dan bukan scene aktif saat ini), muat scene tersebut;
+        // jika hanya ada 1 scene di project, kembali ke Level 1.
+        int currentBuildIdx = SceneManager.GetActiveScene().buildIndex;
+        if (SceneManager.sceneCountInBuildSettings > 1 && currentBuildIdx > 0)
+        {
+            pendingLevelOverride = 1;
+            SceneManager.LoadScene(0);
+        }
+        else
+        {
+            pendingLevelOverride = 1;
+            SceneManager.LoadScene(currentBuildIdx);
+        }
     }
 
     private void UpdateAllHUD()
@@ -422,7 +601,8 @@ public class ConsciousnessManager : MonoBehaviour
 
         if (consciousnessLabelText != null)
         {
-            consciousnessLabelText.text = $"KESADARAN: {Mathf.CeilToInt(currentConsciousness)}%";
+            // Hanya berupa visual bar tanpa persentase
+            consciousnessLabelText.text = "";
         }
 
         if (livesText != null)
@@ -437,7 +617,7 @@ public class ConsciousnessManager : MonoBehaviour
 
         if (distanceText != null)
         {
-            distanceText.text = $"🏠 JARAK: {remainingDistanceKm:F2} KM";
+            distanceText.text = $"🏠 LV.{CurrentLevel} | {remainingDistanceKm:F2} KM";
         }
 
         if (sleepWarningText != null)
@@ -736,7 +916,7 @@ public class ConsciousnessManager : MonoBehaviour
                 consciousnessFillImage = consciousnessFillRect.GetComponent<Image>();
                 consciousnessFillImage.raycastTarget = false;
 
-                consciousnessLabelText = PhoneUIHelper.CreateText("Label", bg, "KESADARAN: 100%", Color.white, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f), TextAnchor.MiddleCenter, 28);
+                consciousnessLabelText = PhoneUIHelper.CreateText("Label", bg, "", Color.white, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f), TextAnchor.MiddleCenter, 28);
             }
             else
             {
@@ -798,7 +978,6 @@ public class ConsciousnessManager : MonoBehaviour
 
                 endGameTitleText = PhoneUIHelper.CreateText("Title", panelRt, "GAME OVER", Color.red, new Vector2(0.15f, 0.58f), new Vector2(0.85f, 0.74f), TextAnchor.MiddleCenter, 64);
                 endGameDetailText = PhoneUIHelper.CreateText("Detail", panelRt, "Detail", Color.white, new Vector2(0.20f, 0.42f), new Vector2(0.80f, 0.56f), TextAnchor.MiddleCenter, 32, FontStyle.Normal);
-                restartButton = PhoneUIHelper.CreateButton("Restart_Button", panelRt, "MAIN LAGI (RESTART)", new Color(0.20f, 0.75f, 0.42f), Color.white, new Vector2(0.36f, 0.25f), new Vector2(0.64f, 0.36f), out Text btnLabel, 34);
 
                 endGamePanel.SetActive(false);
             }
@@ -809,9 +988,100 @@ public class ConsciousnessManager : MonoBehaviour
                 if (titleT != null) endGameTitleText = titleT.GetComponent<Text>();
                 Transform detailT = t.Find("Detail");
                 if (detailT != null) endGameDetailText = detailT.GetComponent<Text>();
-                Transform btnT = t.Find("Restart_Button");
-                if (btnT != null) restartButton = btnT.GetComponent<Button>();
             }
+        }
+
+        EnsureEndScreenButtonsBuilt();
+    }
+
+    private void EnsureEndScreenButtonsBuilt()
+    {
+        if (endGamePanel == null) return;
+        Transform panelTf = endGamePanel.transform;
+
+        // 1. Tombol Kiri: [ HOME ]
+        if (homeButton == null)
+        {
+            Transform homeT = panelTf.Find("Home_Button");
+            if (homeT != null) homeButton = homeT.GetComponent<Button>();
+        }
+        if (homeButton == null)
+        {
+            homeButton = PhoneUIHelper.CreateButton(
+                "Home_Button",
+                panelTf,
+                "HOME",
+                new Color(0.24f, 0.28f, 0.36f, 1f),
+                Color.white,
+                new Vector2(0.22f, 0.24f),
+                new Vector2(0.48f, 0.35f),
+                out homeButtonLabel,
+                34
+            );
+        }
+        else if (homeButtonLabel == null)
+        {
+            homeButtonLabel = homeButton.GetComponentInChildren<Text>(true);
+        }
+
+        // 2. Tombol Kanan (Saat Kalah / Tamat Level 3): [ COBA LAGI / MAIN LAGI ]
+        if (restartButton == null)
+        {
+            Transform btnT = panelTf.Find("Restart_Button");
+            if (btnT != null) restartButton = btnT.GetComponent<Button>();
+        }
+        if (restartButton == null)
+        {
+            restartButton = PhoneUIHelper.CreateButton(
+                "Restart_Button",
+                panelTf,
+                "COBA LAGI",
+                new Color(0.20f, 0.75f, 0.42f, 1f),
+                Color.white,
+                new Vector2(0.52f, 0.24f),
+                new Vector2(0.78f, 0.35f),
+                out restartButtonLabel,
+                34
+            );
+        }
+        else
+        {
+            // Geser sedikit ke sisi kanan agar berdampingan rapi dengan tombol HOME
+            RectTransform rt = restartButton.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                PhoneUIHelper.ApplyAnchorBox(rt, new Vector2(0.52f, 0.24f), new Vector2(0.78f, 0.35f));
+            }
+            if (restartButtonLabel == null)
+            {
+                restartButtonLabel = restartButton.GetComponentInChildren<Text>(true);
+            }
+        }
+
+        // 3. Tombol Kanan (Saat Menang Level 1 atau 2): [ LEVEL SELANJUTNYA ]
+        if (nextLevelButton == null)
+        {
+            Transform nextT = panelTf.Find("NextLevel_Button");
+            if (nextT != null) nextLevelButton = nextT.GetComponent<Button>();
+        }
+        if (nextLevelButton == null)
+        {
+            nextLevelButton = PhoneUIHelper.CreateButton(
+                "NextLevel_Button",
+                panelTf,
+                "LEVEL 2 ➔",
+                new Color(0.15f, 0.65f, 0.95f, 1f),
+                Color.white,
+                new Vector2(0.52f, 0.24f),
+                new Vector2(0.78f, 0.35f),
+                out nextLevelButtonLabel,
+                34
+            );
+            nextLevelButton.gameObject.SetActive(false);
+        }
+        else if (nextLevelButtonLabel == null)
+        {
+            nextLevelButtonLabel = nextLevelButton.GetComponentInChildren<Text>(true);
         }
     }
 }

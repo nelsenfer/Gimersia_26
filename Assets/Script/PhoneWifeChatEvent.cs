@@ -11,10 +11,12 @@ using UnityEngine.UI;
 /// </summary>
 public class PhoneWifeChatEvent : MonoBehaviour
 {
-    [Header("Pengaturan Trigger Random (1x Per Permainan)")]
-    [Tooltip("Waktu minimal (detik) setelah HP dibuka sebelum notif chat Istri muncul")]
+    [Header("Pengaturan Trigger Level 3 (Aktif Setelah Menempuh 3 KM)")]
+    [Tooltip("Jika true, Chat Istri menunggu dipicu oleh ConsciousnessManager setelah menempuh 3 KM di Level 3")]
+    [SerializeField] private bool triggerByDistanceInLevel3 = true;
+    [Tooltip("Waktu minimal (detik) setelah HP dibuka jika tidak memakai trigger jarak Level 3")]
     [SerializeField] private float minTriggerDelay = 12f;
-    [Tooltip("Waktu maksimal (detik) setelah HP dibuka sebelum notif chat Istri muncul")]
+    [Tooltip("Waktu maksimal (detik) setelah HP dibuka jika tidak memakai trigger jarak Level 3")]
     [SerializeField] private float maxTriggerDelay = 22f;
 
     [Header("Pengaturan Eskalasi Spam Notifikasi")]
@@ -53,6 +55,7 @@ public class PhoneWifeChatEvent : MonoBehaviour
 
     private EventPhase currentPhase = EventPhase.WaitingToTrigger;
     private bool isPhoneUnlocked = false;
+    private bool distanceMilestoneReached = false;
     private float triggerCountdown = 15f;
     private float escalationTimer = 0f;
     private float repeatAlertTimer = 0f;
@@ -657,6 +660,7 @@ public class PhoneWifeChatEvent : MonoBehaviour
 
         currentPhase = EventPhase.WaitingToTrigger;
         isPhoneUnlocked = false;
+        distanceMilestoneReached = false;
         triggerCountdown = UnityEngine.Random.Range(minTriggerDelay, maxTriggerDelay);
         escalationTimer = 0f;
         repeatAlertTimer = 0f;
@@ -697,6 +701,24 @@ public class PhoneWifeChatEvent : MonoBehaviour
     public void NotifyPhoneUnlocked()
     {
         isPhoneUnlocked = true;
+        if (triggerByDistanceInLevel3 && distanceMilestoneReached && currentPhase == EventPhase.WaitingToTrigger)
+        {
+            StartNotificationStacking();
+        }
+    }
+
+    /// <summary>
+    /// Dipanggil oleh ConsciousnessManager di Level 3 tepat saat pemain sudah menempuh 3 KM perjalanan.
+    /// </summary>
+    public void TriggerWifeChatByDistanceMilestone()
+    {
+        if (!gameObject.activeInHierarchy) return;
+
+        distanceMilestoneReached = true;
+        if (isPhoneUnlocked && currentPhase == EventPhase.WaitingToTrigger)
+        {
+            StartNotificationStacking();
+        }
     }
 
     private void Update()
@@ -716,10 +738,20 @@ public class PhoneWifeChatEvent : MonoBehaviour
         switch (currentPhase)
         {
             case EventPhase.WaitingToTrigger:
-                triggerCountdown -= Time.deltaTime;
-                if (triggerCountdown <= 0f)
+                if (triggerByDistanceInLevel3)
                 {
-                    StartNotificationStacking();
+                    if (distanceMilestoneReached)
+                    {
+                        StartNotificationStacking();
+                    }
+                }
+                else
+                {
+                    triggerCountdown -= Time.deltaTime;
+                    if (triggerCountdown <= 0f)
+                    {
+                        StartNotificationStacking();
+                    }
                 }
                 break;
 
