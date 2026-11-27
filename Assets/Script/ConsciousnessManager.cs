@@ -18,29 +18,23 @@ public class ConsciousnessManager : MonoBehaviour
 {
     public static ConsciousnessManager Instance { get; private set; }
 
-    [Header("Pengaturan Kesadaran (Skala 0 - 20, Ngantuk di 10)")]
-    [SerializeField] private float maxConsciousness = 20f;
-    [SerializeField] private float startingConsciousness = 20f;
-    [Tooltip("Pengurangan kesadaran saat mode ngantuk/loading/terkunci di awal perjalanan (-1.8/detik)")]
-    [SerializeField] private float passiveDrainPerSecond = 1.8f;
-    [Tooltip("Pengurangan kesadaran saat mode ngantuk/loading/terkunci setelah setengah perjalanan (-3.2/detik)")]
-    [SerializeField] private float midJourneyDrainPerSecond = 3.2f;
-    [Tooltip("Faktor perlambatan drain saat biasa (sedang aktif di tampilan minigame). 0.20 = turun sangat pelan saat main minigame")]
-    [Range(0.05f, 1.0f)]
-    [SerializeField] private float minigameActiveDrainMultiplier = 0.20f;
-    [Tooltip("Proporsi sisa jarak tempuh saat drain naik (0.5 = setengah perjalanan)")]
-    [Range(0.1f, 0.9f)]
-    [SerializeField] private float midJourneyDistanceRatio = 0.5f;
+    [Header("Pengaturan Kesadaran 2 Zona (Skala 0 - 100, Ngantuk di 60)")]
+    [SerializeField] private float maxConsciousness = 100f;
+    [SerializeField] private float startingConsciousness = 100f;
+    [Tooltip("Penurunan kesadaran saat masih di Zona Segar (> 60): Turun CEPAT (-6/detik) agar pemain cepat merasakan ngantuk")]
+    [SerializeField] private float freshZoneDrainPerSecond = 6.0f;
+    [Tooltip("Penurunan kesadaran saat sudah di Zona Ngantuk (<= 60): Turun LAMBAT (-2/detik) agar pemain sering merasakan ngantuk tapi tidak gampang mati ketiduran")]
+    [SerializeField] private float drowsyZoneDrainPerSecond = 2.0f;
     [Tooltip("Batas kesadaran kritis (penalti tabrakan jadi 2 nyawa & bunyi detak jantung)")]
-    [SerializeField] private float criticalThreshold = 4f;
+    [SerializeField] private float criticalThreshold = 25f;
     [Tooltip("Durasi kesadaran 0 sebelum tertidur (Game Over)")]
     [SerializeField] private float sleepGameOverDelay = 5.0f;
 
     [Header("Efek Ngantuk 1: Kelopak Mata & Microsleep")]
-    [Tooltip("Kesadaran di bawah nilai ini kelopak mata mulai terasa berat (Default: 10)")]
-    [SerializeField] private float drowsyStartThreshold = 10f;
+    [Tooltip("Kesadaran di bawah nilai ini kelopak mata mulai terasa berat (Default: 60)")]
+    [SerializeField] private float drowsyStartThreshold = 60f;
     [Tooltip("Kesadaran di bawah nilai ini mulai terjadi Microsleep (mata menutup rapat sesaat)")]
-    [SerializeField] private float microsleepThreshold = 6f;
+    [SerializeField] private float microsleepThreshold = 32f;
     [SerializeField] private float minMicrosleepDuration = 0.35f;
     [SerializeField] private float maxMicrosleepDuration = 0.75f;
     [SerializeField] private float minMicrosleepCooldown = 1.8f;
@@ -49,22 +43,22 @@ public class ConsciousnessManager : MonoBehaviour
     [Header("Efek Ngantuk 2: Kepala Terkulai (Head Nodding)")]
     [Tooltip("Transform Pivot Kepala (otomatis dibuat tepat di posisi mata Main Camera)")]
     [SerializeField] private Transform headPivotTransform;
-    [Tooltip("Kesadaran di bawah nilai ini kepala mulai terkulai (Default: 10)")]
-    [SerializeField] private float headNodStartThreshold = 10f;
+    [Tooltip("Kesadaran di bawah nilai ini kepala mulai terkulai (Default: 60)")]
+    [SerializeField] private float headNodStartThreshold = 60f;
     [Tooltip("Sudut maksimal kepala menunduk ke bawah (derajat)")]
     [SerializeField] private float maxNodPitchAngle = 7f;
     [Tooltip("Sudut maksimal kepala miring ke samping (derajat)")]
     [SerializeField] private float maxNodRollAngle = 3.5f;
 
     [Header("Efek Ngantuk 3: Blur & Vignette (URP Global Volume)")]
-    [SerializeField] private float blurStartThreshold = 10f;
+    [SerializeField] private float blurStartThreshold = 60f;
     [SerializeField] private float maxBlurRadius = 1.25f;
     [SerializeField] private float maxVignetteIntensity = 0.68f;
 
     [Header("Pengaturan Nyawa & Tabrakan")]
     [SerializeField] private int maxLives = 3;
     [Tooltip("Lonjakan kesadaran saat kaget/rem mendadak menabrak")]
-    [SerializeField] private float crashAdrenalineBonus = 10f;
+    [SerializeField] private float crashAdrenalineBonus = 40f;
 
     [Header("Pengaturan Level & Progresi (Level 1 - 3)")]
     [Tooltip("Level saat ini (1 = 1.5 KM & 2 Minigame, 2 = 3.0 KM & 4 Minigame + Iklan, 3 = 5.0 KM + Iklan + Chat Istri setelah 3 KM)")]
@@ -139,9 +133,35 @@ public class ConsciousnessManager : MonoBehaviour
     private float baseVignetteIntensity = 0.44f;
 
     public float CurrentConsciousness => currentConsciousness;
+    public float MaxConsciousness => Mathf.Max(1f, maxConsciousness);
+    public float DrowsyThreshold => drowsyStartThreshold;
+    public float CriticalThreshold => criticalThreshold;
     public int CurrentLives => currentLives;
     public bool IsGameEnded => isGameEnded;
     public int CurrentLevel => Mathf.Clamp(currentLevel, 1, 3);
+
+    private void OnValidate()
+    {
+        UpgradeLegacyScale20ToScale100IfNeeded();
+    }
+
+    private void UpgradeLegacyScale20ToScale100IfNeeded()
+    {
+        // Jika di Inspector masih tersimpan angka skala 20 lama (Max <= 25), otomatis konversi ke skala 100 (Ngantuk di 60)
+        if (maxConsciousness <= 25f)
+        {
+            maxConsciousness = 100f;
+            startingConsciousness = 100f;
+            freshZoneDrainPerSecond = 6.0f;
+            drowsyZoneDrainPerSecond = 2.0f;
+            criticalThreshold = 25f;
+            drowsyStartThreshold = 60f;
+            microsleepThreshold = 32f;
+            headNodStartThreshold = 60f;
+            blurStartThreshold = 60f;
+            crashAdrenalineBonus = 40f;
+        }
+    }
 
     private void Awake()
     {
@@ -151,6 +171,8 @@ public class ConsciousnessManager : MonoBehaviour
             return;
         }
         Instance = this;
+
+        UpgradeLegacyScale20ToScale100IfNeeded();
 
         if (pendingLevelOverride >= 1 && pendingLevelOverride <= 3)
         {
@@ -311,22 +333,12 @@ public class ConsciousnessManager : MonoBehaviour
     {
         if (isGameEnded) return;
 
-        // 1. Penurunan kesadaran pasif:
-        //    - Saat Loading / HP Terkunci / Ada Iklan: Drain Normal (-1/detik di awal, -2/detik di tengah jalan)
-        //    - Saat sedang di tampilan Minigame: Drain jauh lebih rendah (dikalikan minigameActiveDrainMultiplier = 0.35x)
-        bool isPastMidJourney = startingDistanceKm > 0.01f &&
-                                (remainingDistanceKm <= startingDistanceKm * midJourneyDistanceRatio);
-        float baseDrainRate = isPastMidJourney ? midJourneyDrainPerSecond : passiveDrainPerSecond;
-
-        if (phoneController == null)
-        {
-            phoneController = FindFirstObjectByType<PhoneFeedScrollController>();
-        }
-
-        bool isInMinigame = phoneController != null && phoneController.IsPlayingMinigameActive;
-        float activeDrainRate = isInMinigame
-            ? baseDrainRate * minigameActiveDrainMultiplier
-            : baseDrainRate;
+        // 1. Sistem Kesadaran 2 Zona yang Simpel & Konsisten:
+        //    - Di Zona Segar (> drowsyStartThreshold = 60): Turun CEPAT (-6/detik) agar pemain cepat masuk fase ngantuk.
+        //    - Di Zona Ngantuk (<= drowsyStartThreshold = 60): Turun LAMBAT (-2/detik) agar pemain sering merasakan efek ngantuk tapi punya waktu panjang (30 detik) sebelum tertidur!
+        float activeDrainRate = currentConsciousness > drowsyStartThreshold
+            ? freshZoneDrainPerSecond
+            : drowsyZoneDrainPerSecond;
 
         currentConsciousness = Mathf.Max(0f, currentConsciousness - activeDrainRate * Time.deltaTime);
 
@@ -392,7 +404,7 @@ public class ConsciousnessManager : MonoBehaviour
         }
 
         // Saat dapat dopamin besar / kaget, hentikan microsleep & sentak kepala balik sadar
-        if (amount >= 2.5f)
+        if (amount >= 8f)
         {
             isMicrosleeping = false;
             isSnappingHeadUp = true;

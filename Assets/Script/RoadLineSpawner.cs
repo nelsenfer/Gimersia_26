@@ -45,8 +45,8 @@ public class RoadLineSpawner : MonoBehaviour
     [SerializeField] private float roadsideRecycleBehindDistance = 12f;
     [Tooltip("Jarak maksimal (meter) di mana lampu jalan menyalakan komponen Light-nya (Default 42m, hanya 2 lampu terdekat yang menyala agar FPS tetap tinggi!)")]
     [SerializeField] private float maxActiveStreetLampLightDistance = 42f;
-    [Tooltip("Jarak antar gedung dalam 1 sisi jalan (meter)")]
-    [SerializeField] private float buildingRowSpacing = 12f;
+    [Tooltip("Jarak antar gedung dalam 1 sisi jalan (meter). Default 3.1m agar gedung rapat dempet tanpa celah hitam!")]
+    [SerializeField] private float buildingRowSpacing = 3.1f;
     [Tooltip("Jarak zig-zag antar lampu jalan kiri-kanan (meter)")]
     [SerializeField] private float streetLampZigZagStep = 24f;
     [Tooltip("Jarak zig-zag antar pohon kiri-kanan (meter)")]
@@ -495,7 +495,24 @@ public class RoadLineSpawner : MonoBehaviour
 
     private void BuildBuildingSideGroup(string groupLabel, List<Transform> templates)
     {
-        float step = Mathf.Max(6f, buildingRowSpacing);
+        // Ukur lebar Z asli mesh gedung agar gedung berjejer rapat (dempet) tanpa celah hitam di antaranya!
+        float measuredDepthZ = 0f;
+        for (int t = 0; t < templates.Count; t++)
+        {
+            if (templates[t] == null) continue;
+            Renderer rend = templates[t].GetComponentInChildren<Renderer>();
+            if (rend != null && rend.bounds.size.z > 0.5f)
+            {
+                measuredDepthZ = rend.bounds.size.z;
+                break;
+            }
+        }
+
+        // Gunakan jarak dempet (lebar gedung sebenarnya dikurangi 0.04m agar tidak ada celah hitam sama sekali)
+        float step = measuredDepthZ > 0.5f
+            ? Mathf.Max(1.5f, measuredDepthZ - 0.04f)
+            : Mathf.Clamp(buildingRowSpacing, 2.0f, 3.5f);
+
         float maxDist = Mathf.Clamp(roadsideMaxDistanceAhead, 65f, 115f);
         float behindDist = Mathf.Max(8f, roadsideRecycleBehindDistance);
         int totalNeeded = Mathf.CeilToInt((maxDist + behindDist) / step) + 1;
@@ -642,11 +659,8 @@ public class RoadLineSpawner : MonoBehaviour
             float sideX = placeOnLeft ? leftX : rightX;
             if (randomizePlacement)
             {
-                // Sedikit variasi X menjauh dari jalan (agar tidak masuk ke aspal)
-                float outwardSign = placeOnLeft ? -1f : 1f;
-                sideX += outwardSign * Random.Range(0f, 0.85f);
-
-                float randomScaleFactor = Random.Range(0.82f, 1.24f);
+                // Jangan geser X pohon ke arah gedung (outward) agar ranting pohon tidak menabrak tembok gedung sesuai posisi X yang sudah diatur user!
+                float randomScaleFactor = Random.Range(0.86f, 1.06f);
                 itemTf.localScale = baseScale * randomScaleFactor;
             }
 
@@ -730,9 +744,9 @@ public class RoadLineSpawner : MonoBehaviour
                     if (group.randomizeSpacingAndScale)
                     {
                         bool placeLeft = Random.value > 0.5f;
-                        float outwardSign = placeLeft ? -1f : 1f;
-                        recycledPos.x = (placeLeft ? group.baseLeftX : group.baseRightX) + outwardSign * Random.Range(0f, 0.85f);
-                        item.localScale = group.baseTemplateScale * Random.Range(0.82f, 1.24f);
+                        // Gunakan posisi X trotoar persis tanpa menggeser ke arah gedung agar ranting pohon tidak menabrak gedung
+                        recycledPos.x = placeLeft ? group.baseLeftX : group.baseRightX;
+                        item.localScale = group.baseTemplateScale * Random.Range(0.86f, 1.06f);
                     }
                     else
                     {

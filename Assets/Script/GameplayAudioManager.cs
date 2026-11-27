@@ -53,10 +53,19 @@ public class GameplayAudioManager : MonoBehaviour
     [SerializeField] private float finalCrashVolume = 1.0f;
 
     [Header("2. Audio Mobil NPC (3D Spatial - Makin Dekat Makin Terdengar)")]
-    [Tooltip("NPCEngine.mp3 - Suara mesin mobil lain (Loop 3D)")]
+    [Tooltip("NPCEngine.mp3 - Suara mesin mobil NPC standar (Loop 3D)")]
     [SerializeField] private AudioClip npcEngineLoopClip;
+    [Tooltip("Audio Khusus / Troll untuk 1 Mobil NPC Spesial (Otomatis terisi tereret_Copy.mp3 / bisa diganti di Inspector)")]
+    [SerializeField] private AudioClip specialTrollNpcAudioClip;
+    [Tooltip("Nama kata kunci prefab mobil NPC yang memakai audio khusus troll (misal: 'Angkot' atau 'lemon'), atau peluang random jika semua mobil bisa kena")]
+    [SerializeField] private string specialTrollNpcNameKeyword = "Angkot";
+    [Tooltip("Peluang (0 - 100%) mobil NPC lain ikut memakai suara troll (0 = hanya mobil yang cocok keyword di atas)")]
+    [Range(0, 100)]
+    [SerializeField] private int randomTrollNpcChancePercent = 20;
     [Range(0f, 1f)]
     [SerializeField] private float npcEngineMaxVolume = 0.80f;
+    [Range(0f, 1f)]
+    [SerializeField] private float specialTrollNpcMaxVolume = 0.95f;
     [Tooltip("Jarak di mana suara mobil NPC terdengar paling keras (meter)")]
     [SerializeField] private float npcAudioMinDistance = 4.5f;
     [Tooltip("Jarak mulai terdengarnya mobil NPC dari kejauhan (meter)")]
@@ -105,6 +114,7 @@ public class GameplayAudioManager : MonoBehaviour
     private AudioClip activeNormalCrashClip;
     private AudioClip activeFinalCrashClip;
     private AudioClip activeNpcEngineClip;
+    private AudioClip activeSpecialTrollNpcClip;
     private AudioClip activeHeartbeatClip;
     private AudioClip activeGameOverPanelClip;
     private AudioClip activeWinHonkClip;
@@ -138,6 +148,12 @@ public class GameplayAudioManager : MonoBehaviour
             playerEngineLoopClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/motor-loop.mp3");
         if (npcEngineLoopClip == null)
             npcEngineLoopClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/NPCEngine.mp3");
+        if (specialTrollNpcAudioClip == null)
+        {
+            specialTrollNpcAudioClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/tereret_Copy.mp3");
+            if (specialTrollNpcAudioClip == null)
+                specialTrollNpcAudioClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/NPCEngine2.mp3");
+        }
         if (laneChangeSwerveClip == null)
             laneChangeSwerveClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/Pindahjalur.mp3");
         if (normalCrashClip == null)
@@ -219,6 +235,10 @@ public class GameplayAudioManager : MonoBehaviour
         activeNpcEngineClip = npcEngineLoopClip != null
             ? npcEngineLoopClip
             : (useProceduralPlaceholdersIfEmpty ? CreateEngineLoopClip("Placeholder_NPCEngine", 82f, 1.2f) : null);
+
+        activeSpecialTrollNpcClip = specialTrollNpcAudioClip != null
+            ? specialTrollNpcAudioClip
+            : activeNpcEngineClip;
 
         activeLaneChangeClip = laneChangeSwerveClip != null
             ? laneChangeSwerveClip
@@ -324,10 +344,17 @@ public class GameplayAudioManager : MonoBehaviour
         if (heartbeatSource == null || ConsciousnessManager.Instance == null) return;
 
         float c = ConsciousnessManager.Instance.CurrentConsciousness;
+        // Detak jantung baru mulai terdengar saat masuk fase microsleep/kritis (di bawah 6 poin pada skala Max 20, atau <= 30% dari Max)
+        float heartbeatThreshold = Mathf.Min(
+            ConsciousnessManager.Instance.DrowsyThreshold * 0.65f,
+            ConsciousnessManager.Instance.MaxConsciousness * 0.30f
+        );
+        heartbeatThreshold = Mathf.Max(2f, heartbeatThreshold);
+
         float targetVol = 0f;
-        if (c < 28f && !ConsciousnessManager.Instance.IsGameEnded)
+        if (c < heartbeatThreshold && !ConsciousnessManager.Instance.IsGameEnded)
         {
-            float factor = 1f - Mathf.Clamp01(c / 28f);
+            float factor = 1f - Mathf.Clamp01(c / heartbeatThreshold);
             targetVol = factor * heartbeatMaxVolume;
             heartbeatSource.pitch = Mathf.Lerp(0.95f, 1.30f, factor);
         }
@@ -433,15 +460,33 @@ public class GameplayAudioManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Memasang AudioSource 3D Spatial (NPCEngine.mp3) pada mobil NPC yang di-spawn sehingga
-    /// semakin dekat ke mobil player, suaranya semakin terdengar jelas dari arah jalurnya.
+    /// Memasang AudioSource 3D Spatial (NPCEngine.mp3 atau Special Troll Audio seperti tereret_Copy.mp3)
+    /// pada mobil NPC yang di-spawn sehingga semakin dekat ke mobil player, suaranya semakin terdengar jelas dari arah jalurnya.
     /// </summary>
-    public static void AttachNPCEngineAudio(GameObject npcObject)
+    public static void AttachNPCEngineAudio(GameObject npcObject, AudioClip customOverrideClip = null)
     {
         if (npcObject == null) return;
         EnsureExists();
 
-        if (Instance.activeNpcEngineClip == null) return;
+        bool useTrollAudio = false;
+        if (customOverrideClip == null && Instance.activeSpecialTrollNpcClip != null)
+        {
+            if (!string.IsNullOrWhiteSpace(Instance.specialTrollNpcNameKeyword) &&
+                npcObject.name.IndexOf(Instance.specialTrollNpcNameKeyword, System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                useTrollAudio = true;
+            }
+            else if (Instance.randomTrollNpcChancePercent > 0 && Random.Range(0, 100) < Instance.randomTrollNpcChancePercent)
+            {
+                useTrollAudio = true;
+            }
+        }
+
+        AudioClip chosenClip = customOverrideClip != null
+            ? customOverrideClip
+            : (useTrollAudio ? Instance.activeSpecialTrollNpcClip : Instance.activeNpcEngineClip);
+
+        if (chosenClip == null) return;
 
         AudioSource npcSrc = npcObject.GetComponent<AudioSource>();
         if (npcSrc == null)
@@ -449,7 +494,7 @@ public class GameplayAudioManager : MonoBehaviour
             npcSrc = npcObject.AddComponent<AudioSource>();
         }
 
-        npcSrc.clip = Instance.activeNpcEngineClip;
+        npcSrc.clip = chosenClip;
         npcSrc.loop = true;
         npcSrc.playOnAwake = false;
         npcSrc.spatialBlend = 1.0f; // 100% 3D Spatial Audio
@@ -465,9 +510,10 @@ public class GameplayAudioManager : MonoBehaviour
         );
         npcSrc.SetCustomCurve(AudioSourceCurveType.CustomRolloff, curve);
 
-        npcSrc.volume = Instance.npcEngineMaxVolume;
-        npcSrc.pitch = Random.Range(0.92f, 1.08f);
-        npcSrc.dopplerLevel = Instance.npcDopplerLevel;
+        bool isSpecialClip = customOverrideClip != null || useTrollAudio;
+        npcSrc.volume = isSpecialClip ? Instance.specialTrollNpcMaxVolume : Instance.npcEngineMaxVolume;
+        npcSrc.pitch = isSpecialClip ? 1.0f : Random.Range(0.92f, 1.08f);
+        npcSrc.dopplerLevel = isSpecialClip ? 0.15f : Instance.npcDopplerLevel;
         npcSrc.Play();
 
         for (int i = Instance.activeNpcSources.Count - 1; i >= 0; i--)

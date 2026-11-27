@@ -53,16 +53,18 @@ public class PhoneFeedScrollController : MonoBehaviour
     [Tooltip("Kecepatan animasi snap menuju konten baru atau kembali ke konten sebelumnya")]
     [SerializeField] private float snapAnimationSpeed = 14f;
 
-    [Header("Jeda Buffering Sinyal (Peluang Setiap 2 Reels)")]
+    [Header("Jeda Buffering Sinyal & Batas Diam Mikir di HP")]
     [Tooltip("Apakah fitur buffering/loading sinyal diaktifkan")]
     [SerializeField] private bool enableReelBufferingCooldown = true;
     [Tooltip("Diundi setiap berapa kali ganti Reel (Default: tiap 2 Reels)")]
     [SerializeField] private int reelsBufferCheckInterval = 2;
-    [Tooltip("Peluang munculnya loading buffering (0 - 100%) saat sudah ganti 2 Reels")]
+    [Tooltip("Peluang munculnya loading buffering (0 - 100%) saat sudah ganti 2 Reels (Loading pertama dijamin 100% pasti muncul!)")]
     [Range(0, 100)]
-    [SerializeField] private int reelBufferChancePercent = 60;
+    [SerializeField] private int reelBufferChancePercent = 65;
     [SerializeField] private float minReelBufferDuration = 2.5f;
     [SerializeField] private float maxReelBufferDuration = 4.0f;
+    [Tooltip("Batas waktu (detik) pemain diam / mikir / tidak klik di HP sebelum kesadaran kembali berkurang drastis seperti saat loading (Default: 3 detik)")]
+    [SerializeField] private float maxPhoneIdleBeforeFastDrain = 3.0f;
     [SerializeField] private GameObject reelBufferOverlayPanel;
     [SerializeField] private Text reelBufferOverlayText;
 
@@ -112,16 +114,27 @@ public class PhoneFeedScrollController : MonoBehaviour
     private bool isReelBuffering = false;
     private float reelBufferTimer = 0f;
     private int reelsScrolledSinceLastBuffer = 0;
+    private bool hasTriggeredBufferAtLeastOnce = false;
+    private bool missedPreviousBufferRoll = false;
+    private float phoneIdleTimer = 0f;
 
     private readonly List<RaycastResult> raycastResults = new List<RaycastResult>();
 
     public float TotalDopamineEarned => totalDopamineEarned;
     public bool IsUnlocked => isUnlocked;
     public bool IsReelBuffering => isReelBuffering;
+    public float PhoneIdleTimer => phoneIdleTimer;
+
+    /// <summary>
+    /// True HANYA jika HP sudah terbuka, tidak sedang Loading/Buffering, tidak tertutup iklan,
+    /// DAN pemain masih aktif berinteraksi di HP dalam 3 detik terakhir (tidak sedang diam/mikir kelamaan).
+    /// Jika pemain diam/mikir >= 3 detik di HP, nilai ini menjadi False sehingga kesadaran langsung turun deras seperti saat Loading!
+    /// </summary>
     public bool IsPlayingMinigameActive =>
         isUnlocked &&
         !isReelBuffering &&
-        (adPopupManager == null || !adPopupManager.HasActiveAds);
+        (adPopupManager == null || !adPopupManager.HasActiveAds) &&
+        (phoneIdleTimer < Mathf.Max(0.5f, maxPhoneIdleBeforeFastDrain));
 
     public void AutoBindReferences()
     {
@@ -541,9 +554,36 @@ public class PhoneFeedScrollController : MonoBehaviour
 
     private void Update()
     {
+        UpdatePhoneIdleTimer();
         UpdateReelBufferingCooldown();
         UpdateScrollInteraction();
         UpdateSnapAnimations();
+    }
+
+    private void UpdatePhoneIdleTimer()
+    {
+        if (!isUnlocked || isReelBuffering)
+        {
+            return;
+        }
+
+        // Jika pemain sedang klik atau menahan drag di atas layar HP (misal geser mangkok Bakso, tarik Slider osu!, tap kucing, klik jawaban MTK, atau scroll),
+        // reset timer diam HP ke 0!
+        if (Mouse.current != null &&
+            (Mouse.current.leftButton.wasPressedThisFrame ||
+             (Mouse.current.leftButton.isPressed && (isTrackingPointer || (minigameOsu != null && minigameOsu.IsDraggingSlider)))) &&
+            IsPointerOverThisPhoneCanvas())
+        {
+            phoneIdleTimer = 0f;
+            return;
+        }
+
+        phoneIdleTimer += Time.deltaTime;
+    }
+
+    public void NotifyActivePhoneInteraction()
+    {
+        phoneIdleTimer = 0f;
     }
 
     private void UpdateReelBufferingCooldown()
@@ -575,11 +615,23 @@ public class PhoneFeedScrollController : MonoBehaviour
         }
 
         reelsScrolledSinceLastBuffer = 0;
-        int roll = Random.Range(0, 100);
-        if (roll >= reelBufferChancePercent)
+
+        // JAMINAN 100%: Loading pertama di permainan PASTI ke-trigger saat sudah mencapai interval (2 Reels),
+        // atau jika undian sebelumnya sempat gagal (pity system) agar pemain pasti mengalami momen Loading!
+        bool forceGuaranteedBuffer = !hasTriggeredBufferAtLeastOnce || missedPreviousBufferRoll;
+
+        if (!forceGuaranteedBuffer)
         {
-            return;
+            int roll = Random.Range(0, 100);
+            if (roll >= reelBufferChancePercent)
+            {
+                missedPreviousBufferRoll = true;
+                return;
+            }
         }
+
+        hasTriggeredBufferAtLeastOnce = true;
+        missedPreviousBufferRoll = false;
 
         EnsureReelBufferOverlayBuilt();
         isReelBuffering = true;
@@ -609,6 +661,7 @@ public class PhoneFeedScrollController : MonoBehaviour
     {
         isReelBuffering = false;
         reelBufferTimer = 0f;
+        phoneIdleTimer = 0f;
 
         if (reelBufferOverlayPanel != null)
         {
@@ -1103,6 +1156,9 @@ public class PhoneFeedScrollController : MonoBehaviour
         isReelBuffering = false;
         reelBufferTimer = 0f;
         reelsScrolledSinceLastBuffer = 0;
+        hasTriggeredBufferAtLeastOnce = false;
+        missedPreviousBufferRoll = false;
+        phoneIdleTimer = 0f;
         if (reelBufferOverlayPanel != null) reelBufferOverlayPanel.SetActive(false);
 
         // Sembunyikan UI.png selama masih di layar kunci Sidik Jari
@@ -1146,8 +1202,8 @@ public class PhoneFeedScrollController : MonoBehaviour
             wifeChatEvent.NotifyPhoneUnlocked();
         }
 
-        // Skala Max 20: Bonus +3.5 saat berhasil membuka kunci Sidik Jari
-        AddConsciousnessReward(3.5f);
+        // Skala Max 100: Bonus +14 saat berhasil membuka kunci Sidik Jari
+        AddConsciousnessReward(14f);
 
         SwitchToNextRandomMinigame(firstOpen: true);
     }
@@ -1269,6 +1325,8 @@ public class PhoneFeedScrollController : MonoBehaviour
 
     private void AddConsciousnessReward(float amount)
     {
+        phoneIdleTimer = 0f;
+
         if (adPopupManager != null && adPopupManager.HasActiveAds)
             return;
 

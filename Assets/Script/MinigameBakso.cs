@@ -23,10 +23,10 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
     [Tooltip("Kecepatan jatuh bakso (dalam proporsi tinggi area bermain per detik)")]
     [SerializeField] private float fallSpeedNormalized = 0.52f;
 
-    [Tooltip("Tambahan kesadaran di balik layar setiap menangkap 1 bakso (Skala Max 20)")]
-    [SerializeField] private float consciousnessPerBakso = 1.25f;
+    [Tooltip("Tambahan kesadaran di balik layar setiap menangkap 1 bakso (Skala Max 100)")]
+    [SerializeField] private float consciousnessPerBakso = 3.6f;
     [Tooltip("Bonus kesadaran saat waktu habis jika berhasil menangkap minimal 5 bakso")]
-    [SerializeField] private float sessionCompleteBonus = 4.0f;
+    [SerializeField] private float sessionCompleteBonus = 14.0f;
 
     [Header("Referensi UI")]
     [SerializeField] private Image backgroundPanel;
@@ -228,11 +228,21 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
 
     private void OnValidate()
     {
+        if (consciousnessPerBakso < 3.5f)
+        {
+            consciousnessPerBakso = 3.6f;
+            sessionCompleteBonus = 14.0f;
+        }
         AutoBindExistingUI();
     }
 
     private void Awake()
     {
+        if (consciousnessPerBakso < 3.5f)
+        {
+            consciousnessPerBakso = 3.6f;
+            sessionCompleteBonus = 14.0f;
+        }
         BuildPlaceholderUI();
     }
 
