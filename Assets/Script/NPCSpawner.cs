@@ -65,6 +65,8 @@ public class NPCSpawner : MonoBehaviour
         new List<ActiveNPC>();
 
     private float nextSpawnTime;
+    private float cachedRoadGroundY = 0.05f;
+    private bool hasCachedRoadGroundY = false;
 
     // Menyimpan jalur NPC terakhir.
     // -1 berarti belum ada NPC yang berhasil spawn.
@@ -108,6 +110,7 @@ public class NPCSpawner : MonoBehaviour
 
         // Jalankan diagnostik kedua jalur sebelum spawn.
         DiagnoseBothLanes();
+        CacheNearPlayerRoadGroundY();
 
         // Spawn beberapa NPC saat awal permainan
         if (preSpawnOnStart &&
@@ -298,6 +301,38 @@ public class NPCSpawner : MonoBehaviour
         );
     }
 
+    private void CacheNearPlayerRoadGroundY()
+    {
+        Vector3 aheadDir = -GetMoveDirection();
+        Vector3 nearProbe = new Vector3(
+            GetLaneX(0),
+            playerCar.position.y,
+            playerCar.position.z + (aheadDir * 8f).z
+        );
+
+        Vector3 rayOrigin = nearProbe + Vector3.up * raycastHeight;
+        Ray ray = new Ray(rayOrigin, Vector3.down);
+        RaycastHit hit;
+
+        if (groundSurface != null && groundSurface.Raycast(ray, out hit, raycastDistance))
+        {
+            cachedRoadGroundY = hit.point.y + groundOffset;
+            hasCachedRoadGroundY = true;
+            return;
+        }
+
+        if (groundLayers.value != 0 &&
+            Physics.Raycast(ray, out hit, raycastDistance, groundLayers, QueryTriggerInteraction.Ignore))
+        {
+            cachedRoadGroundY = hit.point.y + groundOffset;
+            hasCachedRoadGroundY = true;
+            return;
+        }
+
+        cachedRoadGroundY = 0.05f + groundOffset;
+        hasCachedRoadGroundY = true;
+    }
+
     // Search backward from desired spawn distance
     // until a valid road surface is found.
     private bool TryFindSpawnPosition(
@@ -311,13 +346,14 @@ public class NPCSpawner : MonoBehaviour
         chosenLane = -1;
         spawnPosition = Vector3.zero;
 
+        // Pastikan mobil NPC selalu spawn di jarak jauh (di balik kabut), tidak pernah mundur ke depan mata pemain (< 70% distanceAhead)
         float minDistance = Mathf.Max(
-            0.5f,
+            distanceAhead * 0.75f,
             minimumSpawnDistance
         );
 
         float searchStep = Mathf.Max(
-            0.25f,
+            2f,
             spawnSearchStep
         );
 
@@ -381,7 +417,7 @@ public class NPCSpawner : MonoBehaviour
             spawnZ
         );
 
-        // Detect actual asphalt surface
+        // Detect actual asphalt surface (atau gunakan tinggi aspal datar yang sudah di-cache jika di luar ujung mesh Aspal 1)
         if (!TryGetGroundY(groundProbe, out float groundY))
             return false;
 
@@ -428,6 +464,13 @@ public class NPCSpawner : MonoBehaviour
         Vector3 position,
         out float groundY)
     {
+        if (hasCachedRoadGroundY)
+        {
+            // Karena jalanan kita lurus datar, langsung pakai tinggi Y aspal yang sudah di-cache (0 Raycast saat runtime = sangat ringan & bisa spawn sejauh apa pun di balik kabut!)
+            groundY = cachedRoadGroundY;
+            return true;
+        }
+
         Vector3 rayOrigin =
             position + Vector3.up * raycastHeight;
 
@@ -467,8 +510,8 @@ public class NPCSpawner : MonoBehaviour
             }
         }
 
-        groundY = 0f;
-        return false;
+        groundY = cachedRoadGroundY;
+        return true;
     }
 
     // ==========================================

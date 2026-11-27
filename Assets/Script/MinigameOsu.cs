@@ -20,13 +20,13 @@ public class MinigameOsu : MonoBehaviour, IPointerDownHandler, IDragHandler, IPo
     [Tooltip("Durasi waktu untuk menarik Slider sampai ujung (detik)")]
     [SerializeField] private float sliderDuration = 2.10f;
     [Tooltip("Reward kesadaran saat Tap Circle berhasil (Skala Max 20)")]
-    [SerializeField] private float tapRewardConsciousness = 0.8f;
+    [SerializeField] private float tapRewardConsciousness = 1.6f;
     [Tooltip("Reward kesadaran saat Drag Slider berhasil ditarik sampai ujung")]
-    [SerializeField] private float sliderRewardConsciousness = 1.1f;
+    [SerializeField] private float sliderRewardConsciousness = 2.2f;
     [Tooltip("Bonus kesadaran saat Stage Clear (minimal 4 beat berhasil)")]
-    [SerializeField] private float stageClearBonusConsciousness = 2.5f;
+    [SerializeField] private float stageClearBonusConsciousness = 4.0f;
     [Tooltip("Penalti pengurangan kesadaran saat Miss beat")]
-    [SerializeField] private float missPenaltyConsciousness = 1.5f;
+    [SerializeField] private float missPenaltyConsciousness = 0.8f;
 
     [Header("Referensi UI (Otomatis Terhubung)")]
     [SerializeField] private Image backgroundPanel;

@@ -21,10 +21,13 @@ public class ConsciousnessManager : MonoBehaviour
     [Header("Pengaturan Kesadaran (Skala 0 - 20, Ngantuk di 10)")]
     [SerializeField] private float maxConsciousness = 20f;
     [SerializeField] private float startingConsciousness = 20f;
-    [Tooltip("Pengurangan kesadaran otomatis per detik di awal perjalanan (-1/detik)")]
-    [SerializeField] private float passiveDrainPerSecond = 1.0f;
-    [Tooltip("Pengurangan kesadaran otomatis per detik setelah melewati setengah perjalanan (-2/detik)")]
-    [SerializeField] private float midJourneyDrainPerSecond = 2.0f;
+    [Tooltip("Pengurangan kesadaran saat mode ngantuk/loading/terkunci di awal perjalanan (-1.8/detik)")]
+    [SerializeField] private float passiveDrainPerSecond = 1.8f;
+    [Tooltip("Pengurangan kesadaran saat mode ngantuk/loading/terkunci setelah setengah perjalanan (-3.2/detik)")]
+    [SerializeField] private float midJourneyDrainPerSecond = 3.2f;
+    [Tooltip("Faktor perlambatan drain saat biasa (sedang aktif di tampilan minigame). 0.20 = turun sangat pelan saat main minigame")]
+    [Range(0.05f, 1.0f)]
+    [SerializeField] private float minigameActiveDrainMultiplier = 0.20f;
     [Tooltip("Proporsi sisa jarak tempuh saat drain naik (0.5 = setengah perjalanan)")]
     [Range(0.1f, 0.9f)]
     [SerializeField] private float midJourneyDistanceRatio = 0.5f;
@@ -308,10 +311,23 @@ public class ConsciousnessManager : MonoBehaviour
     {
         if (isGameEnded) return;
 
-        // 1. Penurunan kesadaran pasif (-1/detik di awal, naik menjadi -2/detik setelah setengah perjalanan)
+        // 1. Penurunan kesadaran pasif:
+        //    - Saat Loading / HP Terkunci / Ada Iklan: Drain Normal (-1/detik di awal, -2/detik di tengah jalan)
+        //    - Saat sedang di tampilan Minigame: Drain jauh lebih rendah (dikalikan minigameActiveDrainMultiplier = 0.35x)
         bool isPastMidJourney = startingDistanceKm > 0.01f &&
                                 (remainingDistanceKm <= startingDistanceKm * midJourneyDistanceRatio);
-        float activeDrainRate = isPastMidJourney ? midJourneyDrainPerSecond : passiveDrainPerSecond;
+        float baseDrainRate = isPastMidJourney ? midJourneyDrainPerSecond : passiveDrainPerSecond;
+
+        if (phoneController == null)
+        {
+            phoneController = FindFirstObjectByType<PhoneFeedScrollController>();
+        }
+
+        bool isInMinigame = phoneController != null && phoneController.IsPlayingMinigameActive;
+        float activeDrainRate = isInMinigame
+            ? baseDrainRate * minigameActiveDrainMultiplier
+            : baseDrainRate;
+
         currentConsciousness = Mathf.Max(0f, currentConsciousness - activeDrainRate * Time.deltaTime);
 
         // 2. Cek kondisi tertidur (0 selama 5 detik berturut-turut)

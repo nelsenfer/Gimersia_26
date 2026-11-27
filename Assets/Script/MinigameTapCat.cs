@@ -215,14 +215,14 @@ public class MinigameTapCat : MonoBehaviour
         }
 
         currentTaps++;
-        // Skala Max 20: Micro-reward tipis per tap (+0.1), dan bonus utama (+5.0) cair saat 20/20 selesai (Total +7.0)
-        OnConsciousnessReward?.Invoke(0.1f);
+        // Skala Max 20: Reward per tap (+0.35), dan bonus utama (+6.0) cair saat 20/20 selesai (Total +13.0)
+        OnConsciousnessReward?.Invoke(0.35f);
 
         if (!missionCompleted && currentTaps >= targetTapCount)
         {
             missionCompleted = true;
-            OnConsciousnessReward?.Invoke(5.0f);
-            Debug.Log("<color=lime>[Tap the Cat]</color> Misi 20 Tap Selesai! Bonus dopamin +5.0.");
+            OnConsciousnessReward?.Invoke(6.0f);
+            Debug.Log("<color=lime>[Tap the Cat]</color> Misi 20 Tap Selesai! Bonus dopamin +6.0.");
         }
 
         UpdateMissionText();

@@ -24,9 +24,9 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
     [SerializeField] private float fallSpeedNormalized = 0.52f;
 
     [Tooltip("Tambahan kesadaran di balik layar setiap menangkap 1 bakso (Skala Max 20)")]
-    [SerializeField] private float consciousnessPerBakso = 0.6f;
+    [SerializeField] private float consciousnessPerBakso = 1.25f;
     [Tooltip("Bonus kesadaran saat waktu habis jika berhasil menangkap minimal 5 bakso")]
-    [SerializeField] private float sessionCompleteBonus = 2.5f;
+    [SerializeField] private float sessionCompleteBonus = 4.0f;
 
     [Header("Referensi UI")]
     [SerializeField] private Image backgroundPanel;

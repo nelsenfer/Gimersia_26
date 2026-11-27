@@ -356,8 +356,8 @@ public class MinigameMath : MonoBehaviour
                 feedbackText.color = new Color(0.3f, 1f, 0.5f);
             }
 
-            // Skala Max 20: Reward per jawaban benar +1.5
-            OnConsciousnessReward?.Invoke(1.5f);
+            // Skala Max 20: Reward per jawaban benar +3.0
+            OnConsciousnessReward?.Invoke(3.0f);
         }
         else
         {
@@ -375,8 +375,8 @@ public class MinigameMath : MonoBehaviour
                 feedbackText.color = new Color(1f, 0.45f, 0.45f);
             }
 
-            // Penalti salah jawab (-2.0 Kesadaran)
-            OnConsciousnessReward?.Invoke(-2.0f);
+            // Penalti ringan salah jawab (-1.0 Kesadaran)
+            OnConsciousnessReward?.Invoke(-1.0f);
         }
     }
 
@@ -385,10 +385,10 @@ public class MinigameMath : MonoBehaviour
         isQuizFinished = true;
         SetButtonsInteractable(false);
 
-        // Bonus selesai 3 soal jika berhasil menjawab benar minimal 2 soal (+3.0)
+        // Bonus selesai 3 soal jika berhasil menjawab benar minimal 2 soal (+4.0)
         if (correctCountInSession >= 2)
         {
-            OnConsciousnessReward?.Invoke(3.0f);
+            OnConsciousnessReward?.Invoke(4.0f);
         }
 
         if (headerText != null)

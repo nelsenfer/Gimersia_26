@@ -53,11 +53,16 @@ public class PhoneFeedScrollController : MonoBehaviour
     [Tooltip("Kecepatan animasi snap menuju konten baru atau kembali ke konten sebelumnya")]
     [SerializeField] private float snapAnimationSpeed = 14f;
 
-    [Header("Jeda Buffering Setiap Ganti Reel (3 - 5 Detik)")]
-    [Tooltip("Apakah setiap kali ganti Reel baru ada jeda buffering/loading singkat agar pemain fokus jalan dulu")]
+    [Header("Jeda Buffering Sinyal (Peluang Setiap 2 Reels)")]
+    [Tooltip("Apakah fitur buffering/loading sinyal diaktifkan")]
     [SerializeField] private bool enableReelBufferingCooldown = true;
-    [SerializeField] private float minReelBufferDuration = 3.0f;
-    [SerializeField] private float maxReelBufferDuration = 5.0f;
+    [Tooltip("Diundi setiap berapa kali ganti Reel (Default: tiap 2 Reels)")]
+    [SerializeField] private int reelsBufferCheckInterval = 2;
+    [Tooltip("Peluang munculnya loading buffering (0 - 100%) saat sudah ganti 2 Reels")]
+    [Range(0, 100)]
+    [SerializeField] private int reelBufferChancePercent = 60;
+    [SerializeField] private float minReelBufferDuration = 2.5f;
+    [SerializeField] private float maxReelBufferDuration = 4.0f;
     [SerializeField] private GameObject reelBufferOverlayPanel;
     [SerializeField] private Text reelBufferOverlayText;
 
@@ -106,11 +111,17 @@ public class PhoneFeedScrollController : MonoBehaviour
 
     private bool isReelBuffering = false;
     private float reelBufferTimer = 0f;
+    private int reelsScrolledSinceLastBuffer = 0;
 
     private readonly List<RaycastResult> raycastResults = new List<RaycastResult>();
 
     public float TotalDopamineEarned => totalDopamineEarned;
     public bool IsUnlocked => isUnlocked;
+    public bool IsReelBuffering => isReelBuffering;
+    public bool IsPlayingMinigameActive =>
+        isUnlocked &&
+        !isReelBuffering &&
+        (adPopupManager == null || !adPopupManager.HasActiveAds);
 
     public void AutoBindReferences()
     {
@@ -544,7 +555,7 @@ public class PhoneFeedScrollController : MonoBehaviour
         {
             if (reelBufferOverlayText != null)
             {
-                reelBufferOverlayText.text = $"⏳ MEMUAT REEL...\n{reelBufferTimer:F1}s";
+                reelBufferOverlayText.text = $"⏳ Loading...\n{reelBufferTimer:F1}s";
             }
         }
         else
@@ -553,9 +564,22 @@ public class PhoneFeedScrollController : MonoBehaviour
         }
     }
 
-    private void StartReelBufferingCooldown()
+    private void TryTriggerReelBufferingOnScroll()
     {
         if (!enableReelBufferingCooldown) return;
+
+        reelsScrolledSinceLastBuffer++;
+        if (reelsScrolledSinceLastBuffer < Mathf.Max(1, reelsBufferCheckInterval))
+        {
+            return;
+        }
+
+        reelsScrolledSinceLastBuffer = 0;
+        int roll = Random.Range(0, 100);
+        if (roll >= reelBufferChancePercent)
+        {
+            return;
+        }
 
         EnsureReelBufferOverlayBuilt();
         isReelBuffering = true;
@@ -609,10 +633,11 @@ public class PhoneFeedScrollController : MonoBehaviour
 
         if (reelBufferOverlayPanel == null)
         {
+            // Hanya gelap transparan (alpha 0.58) agar UI Reel di belakangnya tetap terlihat jelas!
             RectTransform rt = PhoneUIHelper.CreatePanel(
                 "Reel_Buffering_Overlay",
                 transform,
-                new Color(0.03f, 0.04f, 0.07f, 0.90f),
+                new Color(0f, 0f, 0f, 0.58f),
                 new Vector2(0f, 0f),
                 new Vector2(1f, 0.92f)
             );
@@ -622,19 +647,27 @@ public class PhoneFeedScrollController : MonoBehaviour
             reelBufferOverlayText = PhoneUIHelper.CreateText(
                 "Buffer_Text",
                 rt,
-                "⏳ MEMUAT REEL...\n3.5s",
-                new Color(0.75f, 0.92f, 1f, 1f),
-                new Vector2(0.08f, 0.30f),
-                new Vector2(0.92f, 0.70f),
+                "⏳ Loading...",
+                new Color(1f, 1f, 1f, 0.96f),
+                new Vector2(0.12f, 0.36f),
+                new Vector2(0.88f, 0.64f),
                 TextAnchor.MiddleCenter,
                 160
             );
 
             reelBufferOverlayPanel.SetActive(false);
         }
-        else if (reelBufferOverlayText == null)
+        else
         {
-            reelBufferOverlayText = reelBufferOverlayPanel.GetComponentInChildren<Text>(true);
+            Image bgImg = reelBufferOverlayPanel.GetComponent<Image>();
+            if (bgImg != null)
+            {
+                bgImg.color = new Color(0f, 0f, 0f, 0.58f);
+            }
+            if (reelBufferOverlayText == null)
+            {
+                reelBufferOverlayText = reelBufferOverlayPanel.GetComponentInChildren<Text>(true);
+            }
         }
     }
 
@@ -861,8 +894,8 @@ public class PhoneFeedScrollController : MonoBehaviour
 
         UpdateTopStatusBar("");
 
-        // Aktifkan jeda buffering 3 - 5 detik setiap kali berpindah ke Reel baru
-        StartReelBufferingCooldown();
+        // Cek peluang buffering setiap 2 Reels (tampilan hanya meredup gelap & UI Reels tetap terlihat)
+        TryTriggerReelBufferingOnScroll();
 
         if (adPopupManager != null)
         {
@@ -1069,6 +1102,7 @@ public class PhoneFeedScrollController : MonoBehaviour
 
         isReelBuffering = false;
         reelBufferTimer = 0f;
+        reelsScrolledSinceLastBuffer = 0;
         if (reelBufferOverlayPanel != null) reelBufferOverlayPanel.SetActive(false);
 
         // Sembunyikan UI.png selama masih di layar kunci Sidik Jari
@@ -1112,8 +1146,8 @@ public class PhoneFeedScrollController : MonoBehaviour
             wifeChatEvent.NotifyPhoneUnlocked();
         }
 
-        // Skala Max 20: Bonus kecil +1.5 saat berhasil membuka kunci Sidik Jari
-        AddConsciousnessReward(1.5f);
+        // Skala Max 20: Bonus +3.5 saat berhasil membuka kunci Sidik Jari
+        AddConsciousnessReward(3.5f);
 
         SwitchToNextRandomMinigame(firstOpen: true);
     }
