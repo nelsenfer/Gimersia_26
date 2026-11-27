@@ -55,6 +55,10 @@ public class GameplayAudioManager : MonoBehaviour
     [Header("2. Audio Mobil NPC (3D Spatial - Makin Dekat Makin Terdengar)")]
     [Tooltip("NPCEngine.mp3 - Suara mesin mobil NPC standar (Loop 3D)")]
     [SerializeField] private AudioClip npcEngineLoopClip;
+    [Tooltip("Audio Khusus Mobil Kampanye (Reveille Loud FAST [Alarm ringtone for mobiles].wav)")]
+    [SerializeField] private AudioClip campaignNpcAudioClip;
+    [Tooltip("Kata kunci nama prefab Mobil Kampanye (Default: 'kampanye')")]
+    [SerializeField] private string campaignNpcNameKeyword = "kampanye";
     [Tooltip("Audio Khusus / Troll untuk 1 Mobil NPC Spesial (Otomatis terisi tereret_Copy.mp3 / bisa diganti di Inspector)")]
     [SerializeField] private AudioClip specialTrollNpcAudioClip;
     [Tooltip("Nama kata kunci prefab mobil NPC yang memakai audio khusus troll (misal: 'Angkot' atau 'lemon'), atau peluang random jika semua mobil bisa kena")]
@@ -64,6 +68,8 @@ public class GameplayAudioManager : MonoBehaviour
     [SerializeField] private int randomTrollNpcChancePercent = 20;
     [Range(0f, 1f)]
     [SerializeField] private float npcEngineMaxVolume = 0.80f;
+    [Range(0f, 1f)]
+    [SerializeField] private float campaignNpcMaxVolume = 1.0f;
     [Range(0f, 1f)]
     [SerializeField] private float specialTrollNpcMaxVolume = 0.95f;
     [Tooltip("Jarak di mana suara mobil NPC terdengar paling keras (meter)")]
@@ -114,6 +120,7 @@ public class GameplayAudioManager : MonoBehaviour
     private AudioClip activeNormalCrashClip;
     private AudioClip activeFinalCrashClip;
     private AudioClip activeNpcEngineClip;
+    private AudioClip activeCampaignNpcClip;
     private AudioClip activeSpecialTrollNpcClip;
     private AudioClip activeHeartbeatClip;
     private AudioClip activeGameOverPanelClip;
@@ -148,10 +155,14 @@ public class GameplayAudioManager : MonoBehaviour
             playerEngineLoopClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/motor-loop.mp3");
         if (npcEngineLoopClip == null)
             npcEngineLoopClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/NPCEngine.mp3");
-        if (specialTrollNpcAudioClip == null)
+        if (campaignNpcAudioClip == null)
+            campaignNpcAudioClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/Reveille Loud FAST [Alarm ringtone for mobiles].wav");
+        if (specialTrollNpcAudioClip == null || specialTrollNpcAudioClip == npcEngineLoopClip)
         {
-            specialTrollNpcAudioClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/tereret_Copy.mp3");
-            if (specialTrollNpcAudioClip == null)
+            AudioClip tereret = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/tereret_Copy.mp3");
+            if (tereret != null)
+                specialTrollNpcAudioClip = tereret;
+            else if (specialTrollNpcAudioClip == null)
                 specialTrollNpcAudioClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/NPCEngine2.mp3");
         }
         if (laneChangeSwerveClip == null)
@@ -235,6 +246,10 @@ public class GameplayAudioManager : MonoBehaviour
         activeNpcEngineClip = npcEngineLoopClip != null
             ? npcEngineLoopClip
             : (useProceduralPlaceholdersIfEmpty ? CreateEngineLoopClip("Placeholder_NPCEngine", 82f, 1.2f) : null);
+
+        activeCampaignNpcClip = campaignNpcAudioClip != null
+            ? campaignNpcAudioClip
+            : activeNpcEngineClip;
 
         activeSpecialTrollNpcClip = specialTrollNpcAudioClip != null
             ? specialTrollNpcAudioClip
@@ -468,23 +483,36 @@ public class GameplayAudioManager : MonoBehaviour
         if (npcObject == null) return;
         EnsureExists();
 
+        bool isCampaignNpc = false;
         bool useTrollAudio = false;
-        if (customOverrideClip == null && Instance.activeSpecialTrollNpcClip != null)
+
+        if (customOverrideClip == null)
         {
-            if (!string.IsNullOrWhiteSpace(Instance.specialTrollNpcNameKeyword) &&
-                npcObject.name.IndexOf(Instance.specialTrollNpcNameKeyword, System.StringComparison.OrdinalIgnoreCase) >= 0)
+            if (Instance.activeCampaignNpcClip != null &&
+                !string.IsNullOrWhiteSpace(Instance.campaignNpcNameKeyword) &&
+                npcObject.name.IndexOf(Instance.campaignNpcNameKeyword, System.StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                useTrollAudio = true;
+                isCampaignNpc = true;
             }
-            else if (Instance.randomTrollNpcChancePercent > 0 && Random.Range(0, 100) < Instance.randomTrollNpcChancePercent)
+            else if (Instance.activeSpecialTrollNpcClip != null)
             {
-                useTrollAudio = true;
+                if (!string.IsNullOrWhiteSpace(Instance.specialTrollNpcNameKeyword) &&
+                    npcObject.name.IndexOf(Instance.specialTrollNpcNameKeyword, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    useTrollAudio = true;
+                }
+                else if (Instance.randomTrollNpcChancePercent > 0 && Random.Range(0, 100) < Instance.randomTrollNpcChancePercent)
+                {
+                    useTrollAudio = true;
+                }
             }
         }
 
         AudioClip chosenClip = customOverrideClip != null
             ? customOverrideClip
-            : (useTrollAudio ? Instance.activeSpecialTrollNpcClip : Instance.activeNpcEngineClip);
+            : (isCampaignNpc
+                ? Instance.activeCampaignNpcClip
+                : (useTrollAudio ? Instance.activeSpecialTrollNpcClip : Instance.activeNpcEngineClip));
 
         if (chosenClip == null) return;
 
@@ -499,8 +527,8 @@ public class GameplayAudioManager : MonoBehaviour
         npcSrc.playOnAwake = false;
         npcSrc.spatialBlend = 1.0f; // 100% 3D Spatial Audio
         npcSrc.rolloffMode = AudioRolloffMode.Custom;
-        npcSrc.minDistance = Mathf.Max(1f, Instance.npcAudioMinDistance);
-        npcSrc.maxDistance = Mathf.Max(npcSrc.minDistance + 5f, Instance.npcAudioMaxDistance);
+        npcSrc.minDistance = isCampaignNpc ? Mathf.Max(6.5f, Instance.npcAudioMinDistance * 1.4f) : Mathf.Max(1f, Instance.npcAudioMinDistance);
+        npcSrc.maxDistance = isCampaignNpc ? Mathf.Max(62f, Instance.npcAudioMaxDistance * 1.25f) : Mathf.Max(npcSrc.minDistance + 5f, Instance.npcAudioMaxDistance);
 
         AnimationCurve curve = new AnimationCurve(
             new Keyframe(0f, 1f),
@@ -510,10 +538,12 @@ public class GameplayAudioManager : MonoBehaviour
         );
         npcSrc.SetCustomCurve(AudioSourceCurveType.CustomRolloff, curve);
 
-        bool isSpecialClip = customOverrideClip != null || useTrollAudio;
-        npcSrc.volume = isSpecialClip ? Instance.specialTrollNpcMaxVolume : Instance.npcEngineMaxVolume;
+        bool isSpecialClip = customOverrideClip != null || isCampaignNpc || useTrollAudio;
+        npcSrc.volume = isCampaignNpc
+            ? Instance.campaignNpcMaxVolume
+            : (useTrollAudio ? Instance.specialTrollNpcMaxVolume : Instance.npcEngineMaxVolume);
         npcSrc.pitch = isSpecialClip ? 1.0f : Random.Range(0.92f, 1.08f);
-        npcSrc.dopplerLevel = isSpecialClip ? 0.15f : Instance.npcDopplerLevel;
+        npcSrc.dopplerLevel = isSpecialClip ? 0.10f : Instance.npcDopplerLevel;
         npcSrc.Play();
 
         for (int i = Instance.activeNpcSources.Count - 1; i >= 0; i--)

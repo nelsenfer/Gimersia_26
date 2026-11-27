@@ -15,6 +15,12 @@ public class NPCSpawner : MonoBehaviour
     [Header("Prefab Mobil NPC")]
     [SerializeField] private GameObject[] npcPrefabs;
 
+    [Header("Mobil Kampanye Spesial (Hanya Muncul 1 Kali!)")]
+    [Tooltip("Prefab Mobil Kampanye (mobil kampanye benar.prefab) yang punya audio khusus Reveille & hanya muncul maksimal 1x per permainan")]
+    [SerializeField] private GameObject campaignNpcPrefab;
+    [Tooltip("Pada spawn NPC ke-berapa Mobil Kampanye dijamin muncul 1 kali (Default: spawn ke-3 agar pemain pasti ketemu 1x!)")]
+    [SerializeField] private int campaignCarSpawnAtCount = 3;
+
     [Header("Pengaturan 2 Jalur")]
     [SerializeField] private float roadCenterX = -1.63f;
     [SerializeField] private float laneOffset = 1.404f;
@@ -71,6 +77,8 @@ public class NPCSpawner : MonoBehaviour
     // Menyimpan jalur NPC terakhir.
     // -1 berarti belum ada NPC yang berhasil spawn.
     private int lastSpawnedLane = -1;
+    private int totalNormalNpcSpawnCount = 0;
+    private bool hasSpawnedCampaignNpc = false;
 
     private static bool spawningEnabled = true;
 
@@ -81,10 +89,30 @@ public class NPCSpawner : MonoBehaviour
         spawningEnabled = true;
     }
 
+    private void OnValidate()
+    {
+        AutoBindCampaignPrefab();
+    }
+
     private void Awake()
     {
         spawningEnabled = true;
         lastSpawnedLane = -1;
+        totalNormalNpcSpawnCount = 0;
+        hasSpawnedCampaignNpc = false;
+        AutoBindCampaignPrefab();
+    }
+
+    private void AutoBindCampaignPrefab()
+    {
+#if UNITY_EDITOR
+        if (campaignNpcPrefab == null)
+        {
+            campaignNpcPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/ASSET FIX asli/mobil kampanye benar.prefab"
+            );
+        }
+#endif
     }
 
     private void Start()
@@ -673,30 +701,87 @@ public class NPCSpawner : MonoBehaviour
                 Vector3.up
             );
 
-        // Use assigned NPC prefab
-        if (npcPrefabs != null && npcPrefabs.Length > 0)
+        totalNormalNpcSpawnCount++;
+
+        GameObject selectedPrefab = null;
+
+        // 1. Cek apakah waktunya spawn Mobil Kampanye (Hanya 1 kali per game!)
+        int targetCampaignOrder = Mathf.Max(1, campaignCarSpawnAtCount);
+        if (!hasSpawnedCampaignNpc && totalNormalNpcSpawnCount >= targetCampaignOrder)
         {
-            GameObject prefab = npcPrefabs[
-                Random.Range(0, npcPrefabs.Length)
-            ];
-
-            if (prefab != null)
+            if (campaignNpcPrefab != null)
             {
-                GameObject instance = Instantiate(
-                    prefab,
-                    spawnPosition,
-                    facingRotation * prefab.transform.rotation
-                );
-
-                EnsureObstacleSetup(instance);
-
-                AlignBottomToGround(
-                    instance,
-                    spawnPosition.y
-                );
-
-                return instance;
+                selectedPrefab = campaignNpcPrefab;
+                hasSpawnedCampaignNpc = true;
             }
+            else if (npcPrefabs != null)
+            {
+                for (int i = 0; i < npcPrefabs.Length; i++)
+                {
+                    if (npcPrefabs[i] != null &&
+                        npcPrefabs[i].name.IndexOf("kampanye", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        selectedPrefab = npcPrefabs[i];
+                        hasSpawnedCampaignNpc = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 2. Jika bukan giliran Mobil Kampanye (atau Mobil Kampanye sudah pernah muncul 1x),
+        // pilih dari daftar npcPrefabs tapi SKIP prefab kampanye agar tidak pernah muncul ke-2 kalinya!
+        if (selectedPrefab == null && npcPrefabs != null && npcPrefabs.Length > 0)
+        {
+            List<GameObject> candidates = new List<GameObject>();
+            for (int i = 0; i < npcPrefabs.Length; i++)
+            {
+                GameObject p = npcPrefabs[i];
+                if (p == null) continue;
+
+                bool isCampaign = (campaignNpcPrefab != null && p == campaignNpcPrefab) ||
+                                  p.name.IndexOf("kampanye", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+                if (isCampaign)
+                {
+                    // Jangan masukkan ke pool random jika sudah pernah muncul 1x (atau jika kita menunggu urutan campaignCarSpawnAtCount)
+                    continue;
+                }
+
+                candidates.Add(p);
+            }
+
+            if (candidates.Count > 0)
+            {
+                selectedPrefab = candidates[Random.Range(0, candidates.Count)];
+            }
+            else if (!hasSpawnedCampaignNpc)
+            {
+                selectedPrefab = npcPrefabs[Random.Range(0, npcPrefabs.Length)];
+                if (selectedPrefab != null &&
+                    selectedPrefab.name.IndexOf("kampanye", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    hasSpawnedCampaignNpc = true;
+                }
+            }
+        }
+
+        if (selectedPrefab != null)
+        {
+            GameObject instance = Instantiate(
+                selectedPrefab,
+                spawnPosition,
+                facingRotation * selectedPrefab.transform.rotation
+            );
+
+            EnsureObstacleSetup(instance);
+
+            AlignBottomToGround(
+                instance,
+                spawnPosition.y
+            );
+
+            return instance;
         }
 
         // Create placeholder NPC
