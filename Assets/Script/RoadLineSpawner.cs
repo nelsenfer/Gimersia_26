@@ -88,13 +88,46 @@ public class RoadLineSpawner : MonoBehaviour
         linesMoving = true;
     }
 
+    private void OnValidate()
+    {
+        AutoBindPlayerCarAndPrefabs();
+    }
+
     private void Awake()
     {
         linesMoving = true;
+        AutoBindPlayerCarAndPrefabs();
+    }
+
+    private void AutoBindPlayerCarAndPrefabs()
+    {
+        if (playerCar == null || !playerCar.gameObject.scene.IsValid())
+        {
+            CarController car = FindFirstObjectByType<CarController>();
+            if (car != null)
+            {
+                playerCar = car.transform;
+            }
+        }
+
+#if UNITY_EDITOR
+        if (linePrefab == null)
+            linePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ASSET FIX asli/Putih Putih jalan'.fbx");
+        if (buildingPrefab == null)
+            buildingPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ASSET FIX asli/gedung 1.fbx");
+        if (buildingAltMaterial == null)
+            buildingAltMaterial = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/ASSET FIX asli/01 · Ivory — Putih Gading 1.mat");
+        if (streetLampPrefab == null)
+            streetLampPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ASSET FIX asli/Lampu jalan.fbx");
+        if (treePrefab == null)
+            treePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ASSET FIX asli/pohon 1.fbx");
+#endif
     }
 
     private void Start()
     {
+        AutoBindPlayerCarAndPrefabs();
+
         if (playerCar == null || linePrefab == null)
         {
             Debug.LogError(
@@ -109,21 +142,30 @@ public class RoadLineSpawner : MonoBehaviour
         lineSpacing = Mathf.Max(0.1f, lineSpacing);
 
         // Determine movement direction
-        moveDirection = moveOppositePlayerForward
-            ? -playerCar.forward
-            : playerCar.forward;
-
-        moveDirection.y = 0f;
-
-        if (moveDirection.sqrMagnitude < 0.001f)
+        // Kunci ke arah pandangan Kamera utama (atau selaras dengan NPCSpawner) agar meskipun rotasi model 3D mobil dibalik 180 derajat,
+        // garis jalan & environment selalu bergerak mendekati pemain (mobil terasa maju ke depan, bukan mundur).
+        Vector3 forwardViewDir = Vector3.back; // Default arah jalan di scene (-Z)
+        if (Camera.main != null)
         {
-            Debug.LogError("Arah pergerakan Road Line tidak valid!");
-            enabled = false;
-            return;
+            Vector3 camFwd = Camera.main.transform.forward;
+            camFwd.y = 0f;
+            if (camFwd.sqrMagnitude > 0.001f)
+            {
+                forwardViewDir = camFwd.normalized;
+            }
+        }
+        else if (playerCar != null)
+        {
+            Vector3 carFwd = moveOppositePlayerForward ? playerCar.forward : -playerCar.forward;
+            carFwd.y = 0f;
+            if (carFwd.sqrMagnitude > 0.001f)
+            {
+                forwardViewDir = carFwd.normalized;
+            }
         }
 
-        moveDirection.Normalize();
-        spawnDirection = -moveDirection;
+        spawnDirection = forwardViewDir;
+        moveDirection = -spawnDirection;
 
         roadLines = new Transform[lineCount];
 
@@ -256,36 +298,57 @@ public class RoadLineSpawner : MonoBehaviour
         Transform lampTemplate = null;
         Transform treeTemplate = null;
 
-        GameObject[] rootObjects = gameObject.scene.GetRootGameObjects();
-        for (int i = 0; i < rootObjects.Length; i++)
+        // Cari di seluruh Transform aktif di scene (baik yang di Root maupun yang dimasukkan ke dalam folder/parent seperti Environment Manager)
+        Transform[] allSceneTransforms = FindObjectsByType<Transform>(FindObjectsSortMode.None);
+        for (int i = 0; i < allSceneTransforms.Length; i++)
         {
-            GameObject go = rootObjects[i];
-            if (go == null || !go.activeInHierarchy || go == gameObject)
+            Transform tf = allSceneTransforms[i];
+            if (tf == null || !tf.gameObject.activeInHierarchy || tf == transform || tf.IsChildOf(transform))
                 continue;
 
-            string lowerName = go.name.ToLowerInvariant();
+            // Hanya ambil root dari masing-masing objek gedung/lampu/pohon (jangan ambil child mesh di dalamnya)
+            if (tf.parent != null)
+            {
+                string parentLower = tf.parent.name.ToLowerInvariant();
+                if (parentLower.StartsWith("gedung") || parentLower.StartsWith("lampu jalan") || parentLower.StartsWith("pohon"))
+                    continue;
+            }
+
+            string lowerName = tf.name.ToLowerInvariant();
             if (lowerName.StartsWith("gedung"))
             {
-                if (go.transform.position.x < roadCenterX)
-                    leftBuildingTemplates.Add(go.transform);
+                if (tf.position.x < roadCenterX)
+                    leftBuildingTemplates.Add(tf);
                 else
-                    rightBuildingTemplates.Add(go.transform);
+                    rightBuildingTemplates.Add(tf);
             }
             else if (lowerName.StartsWith("lampu jalan"))
             {
                 if (lampTemplate == null)
-                    lampTemplate = go.transform;
+                    lampTemplate = tf;
                 else
-                    go.SetActive(false);
+                    tf.gameObject.SetActive(false);
             }
-            else if (lowerName.StartsWith("pohon"))
+            else if (lowerName.StartsWith("pohon") && !lowerName.Contains("spawn"))
             {
                 if (treeTemplate == null)
-                    treeTemplate = go.transform;
+                    treeTemplate = tf;
                 else
-                    go.SetActive(false);
+                    tf.gameObject.SetActive(false);
             }
         }
+
+#if UNITY_EDITOR
+        // Pastikan referensi prefab terisi otomatis jika di Inspector masih kosong karena scene belum sempat di-reload
+        if (buildingPrefab == null)
+            buildingPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ASSET FIX asli/gedung 1.fbx");
+        if (buildingAltMaterial == null)
+            buildingAltMaterial = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/ASSET FIX asli/01 · Ivory — Putih Gading 1.mat");
+        if (streetLampPrefab == null)
+            streetLampPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ASSET FIX asli/Lampu jalan.fbx");
+        if (treePrefab == null)
+            treePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ASSET FIX asli/pohon 1.fbx");
+#endif
 
         // Jika user sudah menghapus objek gedung/lampu/pohon dari Hierarchy agar scene bersih,
         // buat template otomatis dari Prefab yang terhubung di RoadLineSpawner!
@@ -348,7 +411,7 @@ public class RoadLineSpawner : MonoBehaviour
                 .CompareTo(Vector3.Dot(b.position - playerCar.position, spawnDirection)));
 
         // 0. Pastikan Aspal & Trotoar memanjang penuh menembus kabut (>= 115m ke depan) agar kabut terlihat menyelimuti jalan & gedung
-        ExtendStaticRoadAndSidewalkIntoFog(rootObjects);
+        ExtendStaticRoadAndSidewalkIntoFog(allSceneTransforms);
 
         // 1. Barisan Gedung Sisi Kiri (sampai >= 92m ke depan)
         if (leftBuildingTemplates.Count > 0)
@@ -389,17 +452,18 @@ public class RoadLineSpawner : MonoBehaviour
         }
     }
 
-    private void ExtendStaticRoadAndSidewalkIntoFog(GameObject[] rootObjects)
+    private void ExtendStaticRoadAndSidewalkIntoFog(Transform[] allSceneTransforms)
     {
-        if (rootObjects == null) return;
+        if (allSceneTransforms == null) return;
 
         float requiredAheadDist = Mathf.Max(110f, roadsideMaxDistanceAhead + 20f);
 
-        for (int i = 0; i < rootObjects.Length; i++)
+        for (int i = 0; i < allSceneTransforms.Length; i++)
         {
-            GameObject go = rootObjects[i];
-            if (go == null || !go.activeInHierarchy) continue;
+            Transform tf = allSceneTransforms[i];
+            if (tf == null || !tf.gameObject.activeInHierarchy || tf.IsChildOf(transform)) continue;
 
+            GameObject go = tf.gameObject;
             string lower = go.name.ToLowerInvariant();
             if (!lower.StartsWith("aspal") && !lower.StartsWith("trotoar"))
                 continue;

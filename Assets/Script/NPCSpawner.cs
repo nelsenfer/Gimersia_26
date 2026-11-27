@@ -172,6 +172,18 @@ public class NPCSpawner : MonoBehaviour
     // Determine environment movement direction
     private Vector3 GetMoveDirection()
     {
+        // Kunci ke arah pandangan Kamera utama agar meskipun rotasi model 3D mobil dibalik 180 derajat,
+        // mobil NPC selalu spawn di depan pandangan kamera dan bergerak mendekati pemain.
+        if (Camera.main != null)
+        {
+            Vector3 camFwd = Camera.main.transform.forward;
+            camFwd.y = 0f;
+            if (camFwd.sqrMagnitude > 0.001f)
+            {
+                return -camFwd.normalized;
+            }
+        }
+
         Vector3 dir = moveOppositePlayerForward
             ? -playerCar.forward
             : playerCar.forward;
@@ -180,7 +192,7 @@ public class NPCSpawner : MonoBehaviour
 
         return dir.sqrMagnitude > 0.001f
             ? dir.normalized
-            : Vector3.back;
+            : Vector3.forward;
     }
 
     // Get exact X position of each lane
