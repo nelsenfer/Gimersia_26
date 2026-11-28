@@ -157,13 +157,25 @@ public class MinigameTapCat : MonoBehaviour
         }
     }
 
+    private void AutoBindCatSpritesInEditor()
+    {
+#if UNITY_EDITOR
+        if (idleCatSprite == null)
+        {
+            idleCatSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/Ingame/KONTEN 1.png");
+        }
+#endif
+    }
+
     private void OnValidate()
     {
+        AutoBindCatSpritesInEditor();
         AutoBindExistingUI();
     }
 
     private void Awake()
     {
+        AutoBindCatSpritesInEditor();
         BuildPlaceholderUI();
         CacheHierarchyCustomTexts();
         BindButtonEvents();
@@ -254,9 +266,10 @@ public class MinigameTapCat : MonoBehaviour
 
         if (tappedPose)
         {
-            if (tappedCatSprite != null)
+            Sprite activeTapSprite = tappedCatSprite != null ? tappedCatSprite : idleCatSprite;
+            if (activeTapSprite != null)
             {
-                catImage.sprite = tappedCatSprite;
+                catImage.sprite = activeTapSprite;
                 catImage.color = Color.white;
             }
             else
@@ -266,7 +279,7 @@ public class MinigameTapCat : MonoBehaviour
 
             if (catPlaceholderText != null)
             {
-                catPlaceholderText.text = tappedCatSprite != null
+                catPlaceholderText.text = activeTapSprite != null
                     ? ""
                     : "(=✧ω✧=)\n\nMEONG!! [TAP!]\n💥✨";
             }

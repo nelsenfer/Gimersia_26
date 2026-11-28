@@ -28,6 +28,12 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
     [Tooltip("Bonus kesadaran saat waktu habis jika berhasil menangkap minimal 5 bakso")]
     [SerializeField] private float sessionCompleteBonus = 14.0f;
 
+    [Header("Asset Gambar Bakso & Mangkok (Otomatis Terisi dari Assets/Sprite/Ingame)")]
+    [SerializeField] private Sprite bowlEmptySprite;   // mangkok1.png (0 - 2 bakso)
+    [SerializeField] private Sprite bowlHalfSprite;    // mangkok2.png (3 - 5 bakso)
+    [SerializeField] private Sprite bowlFullSprite;    // mangkok3.png (>= 6 bakso)
+    [SerializeField] private Sprite fallingBaksoSprite; // Tak berjudul58_20261127123934.png
+
     [Header("Referensi UI")]
     [SerializeField] private Image backgroundPanel;
     [SerializeField] private Text instructionText;
@@ -229,6 +235,20 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
         }
     }
 
+    private void AutoBindBaksoSpritesInEditor()
+    {
+#if UNITY_EDITOR
+        if (bowlEmptySprite == null)
+            bowlEmptySprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/Ingame/mangkok1.png");
+        if (bowlHalfSprite == null)
+            bowlHalfSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/Ingame/mangkok2.png");
+        if (bowlFullSprite == null)
+            bowlFullSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/Ingame/mangkok3.png");
+        if (fallingBaksoSprite == null)
+            fallingBaksoSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/Ingame/Tak berjudul58_20261127123934.png");
+#endif
+    }
+
     private void OnValidate()
     {
         if (consciousnessPerBakso < 3.5f)
@@ -236,6 +256,7 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
             consciousnessPerBakso = 3.6f;
             sessionCompleteBonus = 14.0f;
         }
+        AutoBindBaksoSpritesInEditor();
         AutoBindExistingUI();
     }
 
@@ -246,6 +267,7 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
             consciousnessPerBakso = 3.6f;
             sessionCompleteBonus = 14.0f;
         }
+        AutoBindBaksoSpritesInEditor();
         BuildPlaceholderUI();
         CacheHierarchyCustomDefaults();
     }
@@ -303,8 +325,38 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
             resultOverlayPanel.SetActive(false);
         }
 
+        UpdateBowlVisualByCaughtCount();
         UpdateBowlPositionInPlayArea();
         UpdateScoreAndTimerUI();
+    }
+
+    private void UpdateBowlVisualByCaughtCount()
+    {
+        if (bowlRect == null) return;
+
+        Image bowlImg = bowlRect.GetComponent<Image>();
+        if (bowlImg == null) return;
+
+        Sprite targetBowlSprite = null;
+        if (caughtCount >= 6 && bowlFullSprite != null)
+            targetBowlSprite = bowlFullSprite;
+        else if (caughtCount >= 3 && bowlHalfSprite != null)
+            targetBowlSprite = bowlHalfSprite;
+        else if (bowlEmptySprite != null)
+            targetBowlSprite = bowlEmptySprite;
+
+        if (targetBowlSprite != null)
+        {
+            bowlImg.sprite = targetBowlSprite;
+            bowlImg.color = Color.white;
+            bowlImg.preserveAspect = true;
+
+            Transform lbl = bowlRect.Find("Mangkok_Label");
+            if (lbl != null)
+            {
+                lbl.gameObject.SetActive(false);
+            }
+        }
     }
 
     private void OnDisable()
@@ -448,26 +500,35 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
         float randomX = UnityEngine.Random.Range(0.12f, 0.88f);
         float startY = 0.92f;
 
-        float halfSize = 0.055f;
+        float halfSize = 0.085f;
         RectTransform baksoRect = PhoneUIHelper.CreatePanel(
             "Bakso_Item",
             playAreaRect,
-            new Color(0.68f, 0.45f, 0.32f, 1f),
+            fallingBaksoSprite != null ? Color.white : new Color(0.68f, 0.45f, 0.32f, 1f),
             new Vector2(randomX - halfSize, startY - halfSize),
             new Vector2(randomX + halfSize, startY + halfSize)
         );
-        baksoRect.GetComponent<Image>().raycastTarget = false;
+        Image baksoImg = baksoRect.GetComponent<Image>();
+        baksoImg.raycastTarget = false;
 
-        PhoneUIHelper.CreateText(
-            "Label",
-            baksoRect,
-            "🧆",
-            Color.white,
-            new Vector2(0.05f, 0.05f),
-            new Vector2(0.95f, 0.95f),
-            TextAnchor.MiddleCenter,
-            55
-        );
+        if (fallingBaksoSprite != null)
+        {
+            baksoImg.sprite = fallingBaksoSprite;
+            baksoImg.preserveAspect = true;
+        }
+        else
+        {
+            PhoneUIHelper.CreateText(
+                "Label",
+                baksoRect,
+                "🧆",
+                Color.white,
+                new Vector2(0.05f, 0.05f),
+                new Vector2(0.95f, 0.95f),
+                TextAnchor.MiddleCenter,
+                55
+            );
+        }
 
         PositionItemInPlayArea(baksoRect, new Vector2(randomX, startY));
 
@@ -512,6 +573,7 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
             if (overlapX && overlapY)
             {
                 caughtCount++;
+                UpdateBowlVisualByCaughtCount();
                 OnConsciousnessReward?.Invoke(consciousnessPerBakso);
                 UpdateScoreAndTimerUI();
 

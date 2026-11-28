@@ -14,30 +14,6 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private GameObject settingsPanel;
     [SerializeField] private Slider masterVolumeSlider;
 
-    [Header("Font Utama Game (Otomatis Terisi Dimbo Regular)")]
-    [SerializeField] private Font customGameFont;
-    [SerializeField] private TMPro.TMP_FontAsset customGameTmpFont;
-
-    private void OnValidate()
-    {
-#if UNITY_EDITOR
-        if (customGameFont == null)
-        {
-            customGameFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Asset fix/font/Dimbo Regular.ttf");
-        }
-        if (customGameTmpFont == null)
-        {
-            customGameTmpFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/Asset fix/font/Dimbo Regular SDF.asset");
-        }
-#endif
-        PhoneUIHelper.SetCustomDefaultFont(customGameFont, customGameTmpFont);
-    }
-
-    private void Awake()
-    {
-        PhoneUIHelper.ApplyProvidedFontToAllSceneTexts(customGameFont, customGameTmpFont);
-    }
-
     private void Start()
     {
         // Hide settings when Main Menu starts
