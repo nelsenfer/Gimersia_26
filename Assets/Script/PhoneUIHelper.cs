@@ -1,24 +1,180 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 /// <summary>
 /// Utility helper untuk membangun elemen UI placeholder secara konsisten
-/// baik di Edit Mode maupun Runtime tanpa membutuhkan asset eksternal.
+/// baik di Edit Mode maupun Runtime, serta menerapkan font utama game (Dimbo Regular).
 /// </summary>
 public static class PhoneUIHelper
 {
+    public const float DefaultLetterSpacing = 2.0f;
+
     private static Font cachedFont;
+    private static TMP_FontAsset cachedTmpFont;
+
+    public static void SetCustomDefaultFont(Font customFont, TMP_FontAsset customTmpFont = null)
+    {
+        if (customFont != null) cachedFont = customFont;
+        if (customTmpFont != null) cachedTmpFont = customTmpFont;
+    }
 
     public static Font GetDefaultFont()
     {
         if (cachedFont != null) return cachedFont;
 
-        cachedFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+#if UNITY_EDITOR
+        cachedFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Asset fix/font/Dimbo Regular.ttf");
+        if (cachedFont == null)
+        {
+            cachedFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Asset fix/font/Dimbo Italic.ttf");
+        }
+#endif
+
+        if (cachedFont == null)
+        {
+            Font[] loadedFonts = Resources.FindObjectsOfTypeAll<Font>();
+            for (int i = 0; i < loadedFonts.Length; i++)
+            {
+                if (loadedFonts[i] != null &&
+                    loadedFonts[i].name.IndexOf("Dimbo", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    cachedFont = loadedFonts[i];
+                    break;
+                }
+            }
+        }
+
+        if (cachedFont == null)
+        {
+            cachedFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        }
         if (cachedFont == null)
         {
             cachedFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
         }
         return cachedFont;
+    }
+
+    public static TMP_FontAsset GetDefaultTMPFont()
+    {
+        if (cachedTmpFont != null) return cachedTmpFont;
+
+#if UNITY_EDITOR
+        cachedTmpFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Asset fix/font/Dimbo Regular SDF.asset");
+        if (cachedTmpFont == null)
+        {
+            cachedTmpFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Asset fix/font/Dimbo Italic SDF.asset");
+        }
+#endif
+
+        if (cachedTmpFont == null)
+        {
+            TMP_FontAsset[] loadedTmpFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+            for (int i = 0; i < loadedTmpFonts.Length; i++)
+            {
+                if (loadedTmpFonts[i] != null &&
+                    loadedTmpFonts[i].name.IndexOf("Dimbo", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    cachedTmpFont = loadedTmpFonts[i];
+                    break;
+                }
+            }
+        }
+
+        return cachedTmpFont;
+    }
+
+    /// <summary>
+    /// Menerapkan font Dimbo Regular pada seluruh komponen Text (Legacy UI) dan TMP_Text (TextMeshPro)
+    /// yang ada di Scene aktif maupun di dalam Transform tertentu.
+    /// </summary>
+    public static int ApplyProvidedFontToAllSceneTexts(Font overrideFont = null, TMP_FontAsset overrideTmpFont = null)
+    {
+        if (overrideFont != null || overrideTmpFont != null)
+        {
+            SetCustomDefaultFont(overrideFont, overrideTmpFont);
+        }
+
+        Font targetFont = overrideFont != null ? overrideFont : GetDefaultFont();
+        TMP_FontAsset targetTmpFont = overrideTmpFont != null ? overrideTmpFont : GetDefaultTMPFont();
+        int updatedCount = 0;
+
+        if (targetFont != null)
+        {
+            Text[] allLegacyTexts = Object.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < allLegacyTexts.Length; i++)
+            {
+                Text t = allLegacyTexts[i];
+                if (t == null) continue;
+
+                bool changed = false;
+                if (t.font != targetFont)
+                {
+                    t.font = targetFont;
+                    changed = true;
+                }
+
+                UILetterSpacing spacingEffect = t.GetComponent<UILetterSpacing>();
+                if (spacingEffect == null)
+                {
+                    spacingEffect = t.gameObject.AddComponent<UILetterSpacing>();
+                    spacingEffect.LetterSpacing = DefaultLetterSpacing;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    updatedCount++;
+#if UNITY_EDITOR
+                    if (!Application.isPlaying)
+                    {
+                        EditorUtility.SetDirty(t);
+                        EditorUtility.SetDirty(t.gameObject);
+                    }
+#endif
+                }
+            }
+        }
+
+        if (targetTmpFont != null)
+        {
+            TMP_Text[] allTmpTexts = Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < allTmpTexts.Length; i++)
+            {
+                TMP_Text tmp = allTmpTexts[i];
+                if (tmp == null) continue;
+
+                bool changed = false;
+                if (tmp.font != targetTmpFont)
+                {
+                    tmp.font = targetTmpFont;
+                    changed = true;
+                }
+
+                if (Mathf.Abs(tmp.characterSpacing) < 0.01f)
+                {
+                    tmp.characterSpacing = DefaultLetterSpacing * 2.5f;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    updatedCount++;
+#if UNITY_EDITOR
+                    if (!Application.isPlaying)
+                    {
+                        EditorUtility.SetDirty(tmp);
+                    }
+#endif
+                }
+            }
+        }
+
+        return updatedCount;
     }
 
     public static void ApplyAnchorBox(RectTransform rt, Vector2 anchorMin, Vector2 anchorMax)
@@ -83,6 +239,9 @@ public static class PhoneUIHelper
         txt.resizeTextMinSize = 18;
         txt.resizeTextMaxSize = maxFontSize;
         txt.raycastTarget = false;
+
+        UILetterSpacing spacing = go.AddComponent<UILetterSpacing>();
+        spacing.LetterSpacing = DefaultLetterSpacing;
 
         return txt;
     }

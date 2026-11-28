@@ -47,6 +47,32 @@ public static class PhoneUIBuilderEditor
 
         // Pastikan CameraPivot pas di titik pusat mata Main Camera (Scale 1,1,1)
         EnsureCameraPivotAligned();
+
+        // Terapkan font Dimbo Regular ke seluruh komponen Text & TMP_Text yang ada di Scene aktif
+        ApplyProvidedFontToAllTextsInActiveScene(logResult: false);
+    }
+
+    [MenuItem("Tools/Gimersia/Terapkan Font Dimbo ke Semua Text di Scene")]
+    public static void ApplyProvidedFontMenuCommand()
+    {
+        ApplyProvidedFontToAllTextsInActiveScene(logResult: true);
+    }
+
+    private static void ApplyProvidedFontToAllTextsInActiveScene(bool logResult)
+    {
+        int changed = PhoneUIHelper.ApplyProvidedFontToAllSceneTexts();
+        if (changed > 0)
+        {
+            EditorSceneManager.MarkAllScenesDirty();
+            if (logResult)
+            {
+                Debug.Log($"<color=lime>[Gimersia Font]</color> Berhasil menerapkan font Dimbo Regular ke {changed} objek Text/TMP_Text di Scene!");
+            }
+        }
+        else if (logResult)
+        {
+            Debug.Log("<color=cyan>[Gimersia Font]</color> Seluruh objek Text/TMP_Text di Scene sudah menggunakan font Dimbo Regular!");
+        }
     }
 
     [MenuItem("Tools/Gimersia/Buat atau Pilih GameplayAudioManager (Slot Audio & SFX)")]

@@ -84,6 +84,10 @@ public class PhoneFeedScrollController : MonoBehaviour
     [SerializeField] private Sprite fypOverlaySprite;
     [SerializeField] private Texture2D fypOverlayTexture;
 
+    [Header("Font Utama Game (Otomatis Terisi Dimbo Regular)")]
+    [SerializeField] private Font customGameFont;
+    [SerializeField] private TMPro.TMP_FontAsset customGameTmpFont;
+
     [Header("Status Permainan (Debug / Integrasi Kesadaran)")]
     [SerializeField] private bool isUnlocked = false;
     [SerializeField] private int currentMinigameIndex = -1;
@@ -216,7 +220,16 @@ public class PhoneFeedScrollController : MonoBehaviour
         {
             fypOverlayTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Sprite/Ingame/UI.png");
         }
+        if (customGameFont == null)
+        {
+            customGameFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Asset fix/font/Dimbo Regular.ttf");
+        }
+        if (customGameTmpFont == null)
+        {
+            customGameTmpFont = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/Asset fix/font/Dimbo Regular SDF.asset");
+        }
 #endif
+        PhoneUIHelper.SetCustomDefaultFont(customGameFont, customGameTmpFont);
     }
 
     [ContextMenu("Build / Rebuild Phone Minigames UI")]
@@ -383,6 +396,8 @@ public class PhoneFeedScrollController : MonoBehaviour
         }
         adPopupManager.BuildPlaceholderUI();
         adPopupManager.transform.SetAsLastSibling();
+
+        PhoneUIHelper.ApplyProvidedFontToAllSceneTexts(customGameFont, customGameTmpFont);
     }
 
     private void EnsureFypOverlayBuilt()

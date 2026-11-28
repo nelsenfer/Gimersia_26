@@ -95,6 +95,10 @@ public class ConsciousnessManager : MonoBehaviour
     [SerializeField] private Button nextLevelButton;
     [SerializeField] private Text nextLevelButtonLabel;
 
+    [Header("Font Utama Game (Otomatis Terisi Dimbo Regular)")]
+    [SerializeField] private Font customGameFont;
+    [SerializeField] private TMPro.TMP_FontAsset customGameTmpFont;
+
     // Menyimpan level yang dipilih saat transisi "Level Selanjutnya" / "Home"
     private static int pendingLevelOverride = -1;
 
@@ -143,6 +147,17 @@ public class ConsciousnessManager : MonoBehaviour
     private void OnValidate()
     {
         UpgradeLegacyScale20ToScale100IfNeeded();
+#if UNITY_EDITOR
+        if (customGameFont == null)
+        {
+            customGameFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Asset fix/font/Dimbo Regular.ttf");
+        }
+        if (customGameTmpFont == null)
+        {
+            customGameTmpFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/Asset fix/font/Dimbo Regular SDF.asset");
+        }
+#endif
+        PhoneUIHelper.SetCustomDefaultFont(customGameFont, customGameTmpFont);
     }
 
     private void UpgradeLegacyScale20ToScale100IfNeeded()
@@ -1020,6 +1035,7 @@ public class ConsciousnessManager : MonoBehaviour
         }
 
         EnsureEndScreenButtonsBuilt();
+        PhoneUIHelper.ApplyProvidedFontToAllSceneTexts(customGameFont, customGameTmpFont);
     }
 
     private void EnsureEndScreenButtonsBuilt()
