@@ -14,12 +14,20 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private GameObject settingsPanel;
     [SerializeField] private Slider masterVolumeSlider;
 
+    [Header("Credits Panel")]
+    [SerializeField] private GameObject creditPanel;
+
     private void Start()
     {
-        // Hide settings when Main Menu starts
+        // Hide panels when Main Menu starts
         if (settingsPanel != null)
         {
             settingsPanel.SetActive(false);
+        }
+
+        if (creditPanel != null)
+        {
+            creditPanel.SetActive(false);
         }
 
         // Load saved master volume
@@ -68,13 +76,19 @@ public class MainMenuController : MonoBehaviour
     // SETTINGS BUTTON
     public void OpenSettings()
     {
+        // Close Credits when opening Settings
+        if (creditPanel != null)
+        {
+            creditPanel.SetActive(false);
+        }
+
         if (settingsPanel != null)
         {
             settingsPanel.SetActive(true);
         }
     }
 
-    // BACK BUTTON
+    // BACK BUTTON SETTINGS
     public void CloseSettings()
     {
         if (settingsPanel != null)
@@ -83,12 +97,50 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
+    // CREDITS BUTTON
+    public void OpenCredits()
+    {
+        // Close Settings when opening Credits
+        if (settingsPanel != null)
+        {
+            settingsPanel.SetActive(false);
+        }
+
+        if (creditPanel != null)
+        {
+            creditPanel.SetActive(true);
+
+            Debug.Log("[MainMenu] Credits berhasil dibuka.");
+        }
+        else
+        {
+            Debug.LogError(
+                "[MainMenu] Credit Panel belum dihubungkan!"
+            );
+        }
+    }
+
+    // CLOSE CREDITS BUTTON
+    public void CloseCredits()
+    {
+        if (creditPanel != null)
+        {
+            creditPanel.SetActive(false);
+
+            Debug.Log("[MainMenu] Credits berhasil ditutup.");
+        }
+    }
+
     // MASTER VOLUME SLIDER
     public void SetMasterVolume(float value)
     {
         AudioListener.volume = Mathf.Clamp01(value);
 
-        PlayerPrefs.SetFloat(VolumeKey, AudioListener.volume);
+        PlayerPrefs.SetFloat(
+            VolumeKey,
+            AudioListener.volume
+        );
+
         PlayerPrefs.Save();
     }
 
