@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Gimersia.slnx"
+    "dotnet.defaultSolution": "Gimersia_26.slnx"
 }
