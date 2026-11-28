@@ -95,6 +95,35 @@ public class ConsciousnessManager : MonoBehaviour
     [SerializeField] private Button nextLevelButton;
     [SerializeField] private Text nextLevelButtonLabel;
 
+    [Header("Font Utama Game (Otomatis Terisi Dimbo Regular)")]
+    [SerializeField] private Font customGameFont;
+    [SerializeField] private TMPro.TMP_FontAsset customGameTmpFont;
+
+    [Header("Asset Gambar UI HUD & End Screen (Otomatis Terisi dari Assets/Sprite/ui)")]
+    [SerializeField] private Sprite energyBarFrameSprite;   // CANVAS ENERGY BAR.png
+    [SerializeField] private Sprite energyBarFillSprite;    // ENERGY BAR.png
+    [SerializeField] private Sprite heartIconSprite;        // HEART.png
+    [SerializeField] private Sprite kmBarFrameSprite;       // CANVAS BAR KM.png
+    [SerializeField] private Sprite kmBarFillSprite;        // BAR KM.png
+    [SerializeField] private Sprite pauseIdleSprite;        // PAUSE.png
+    [SerializeField] private Sprite pauseHoverOrPlaySprite; // PAUSE 2.png
+    [SerializeField] private Sprite levelCompleteTitleSprite; // LEVEL COMPLETE.png
+    [SerializeField] private Sprite youLoseTitleSprite;       // YOU LOSE.png
+    [SerializeField] private Sprite btnMainMenuNormalSprite;  // BUTTON MAIN MENU.png
+    [SerializeField] private Sprite btnMainMenuHoverSprite;   // BUTTON TEKAN MAIN MENU.png
+    [SerializeField] private Sprite btnNextLevelNormalSprite; // BUTTON NEXT LEVEL.png
+    [SerializeField] private Sprite btnNextLevelHoverSprite;  // BUTTON TEKAN NEXT LEVEL.png
+    [SerializeField] private Sprite btnTryAgainNormalSprite;  // BUTTON TRY AGAIN.png
+    [SerializeField] private Sprite btnTryAgainHoverSprite;   // BUTTON TEKAN TRY AGAIN.png
+
+    [SerializeField] private Image[] heartIconImages = new Image[3];
+    [SerializeField] private Image endGameTitleBannerImage;
+    [SerializeField] private Button pauseHudButton;
+    [SerializeField] private Image pauseHudButtonImage;
+    [SerializeField] private RectTransform distanceBarFillRect;
+    [SerializeField] private Image distanceBarFillImage;
+    private bool isGamePausedByHud = false;
+
     // Menyimpan level yang dipilih saat transisi "Level Selanjutnya" / "Home"
     private static int pendingLevelOverride = -1;
 
@@ -140,9 +169,54 @@ public class ConsciousnessManager : MonoBehaviour
     public bool IsGameEnded => isGameEnded;
     public int CurrentLevel => Mathf.Clamp(currentLevel, 1, 3);
 
+    private void AutoBindUISpritesInEditor()
+    {
+#if UNITY_EDITOR
+        if (customGameFont == null)
+            customGameFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Asset fix/font/Dimbo Regular.ttf");
+        if (customGameTmpFont == null)
+            customGameTmpFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/Asset fix/font/Dimbo Regular SDF.asset");
+
+        if (energyBarFrameSprite == null)
+            energyBarFrameSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/ui ingame/CANVAS ENERGY BAR.png");
+        if (energyBarFillSprite == null)
+            energyBarFillSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/ui ingame/ENERGY BAR.png");
+        if (heartIconSprite == null)
+            heartIconSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/ui ingame/HEART.png");
+        if (kmBarFrameSprite == null)
+            kmBarFrameSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/ui ingame/CANVAS BAR KM.png");
+        if (kmBarFillSprite == null)
+            kmBarFillSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/ui ingame/BAR KM.png");
+        if (pauseIdleSprite == null)
+            pauseIdleSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/ui ingame/PAUSE.png");
+        if (pauseHoverOrPlaySprite == null)
+            pauseHoverOrPlaySprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/ui ingame/PAUSE 2.png");
+
+        if (levelCompleteTitleSprite == null)
+            levelCompleteTitleSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/New folder/LEVEL COMPLETE.png");
+        if (youLoseTitleSprite == null)
+            youLoseTitleSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/New folder/YOU LOSE.png");
+        if (btnMainMenuNormalSprite == null)
+            btnMainMenuNormalSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/New folder/BUTTON MAIN MENU.png");
+        if (btnMainMenuHoverSprite == null)
+            btnMainMenuHoverSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/New folder/BUTTON TEKAN MAIN MENU.png");
+        if (btnNextLevelNormalSprite == null)
+            btnNextLevelNormalSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/New folder/BUTTON NEXT LEVEL.png");
+        if (btnNextLevelHoverSprite == null)
+            btnNextLevelHoverSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/New folder/BUTTON TEKAN NEXT LEVEL.png");
+        if (btnTryAgainNormalSprite == null)
+            btnTryAgainNormalSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/New folder/BUTTON TRY AGAIN.png");
+        if (btnTryAgainHoverSprite == null)
+            btnTryAgainHoverSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/ui/New folder/BUTTON TEKAN TRY AGAIN.png");
+#endif
+        PhoneUIHelper.SetCustomDefaultFont(customGameFont, customGameTmpFont);
+    }
+
     private void OnValidate()
     {
         UpgradeLegacyScale20ToScale100IfNeeded();
+        AutoBindUISpritesInEditor();
+        AutoBindUISpritesInEditor();
     }
 
     private void UpgradeLegacyScale20ToScale100IfNeeded()
@@ -173,6 +247,7 @@ public class ConsciousnessManager : MonoBehaviour
         Instance = this;
 
         UpgradeLegacyScale20ToScale100IfNeeded();
+        AutoBindUISpritesInEditor();
 
         if (pendingLevelOverride >= 1 && pendingLevelOverride <= 3)
         {
@@ -461,7 +536,15 @@ public class ConsciousnessManager : MonoBehaviour
         if (endGamePanel != null)
         {
             endGamePanel.SetActive(true);
-            if (endGameTitleText != null)
+            if (endGameTitleBannerImage != null && youLoseTitleSprite != null)
+            {
+                endGameTitleBannerImage.gameObject.SetActive(true);
+                endGameTitleBannerImage.sprite = youLoseTitleSprite;
+                endGameTitleBannerImage.color = Color.white;
+                endGameTitleBannerImage.preserveAspect = true;
+                if (endGameTitleText != null) endGameTitleText.text = "";
+            }
+            else if (endGameTitleText != null)
             {
                 endGameTitleText.text = title;
                 endGameTitleText.color = new Color(1f, 0.35f, 0.35f);
@@ -488,7 +571,15 @@ public class ConsciousnessManager : MonoBehaviour
         if (endGamePanel != null)
         {
             endGamePanel.SetActive(true);
-            if (endGameTitleText != null)
+            if (endGameTitleBannerImage != null && levelCompleteTitleSprite != null)
+            {
+                endGameTitleBannerImage.gameObject.SetActive(true);
+                endGameTitleBannerImage.sprite = levelCompleteTitleSprite;
+                endGameTitleBannerImage.color = Color.white;
+                endGameTitleBannerImage.preserveAspect = true;
+                if (endGameTitleText != null) endGameTitleText.text = "";
+            }
+            else if (endGameTitleText != null)
             {
                 endGameTitleText.text = CurrentLevel < 3
                     ? $"🏠 LEVEL {CurrentLevel} SELESAI!"
@@ -514,44 +605,73 @@ public class ConsciousnessManager : MonoBehaviour
         if (homeButton != null)
         {
             homeButton.gameObject.SetActive(true);
-            if (homeButtonLabel != null) homeButtonLabel.text = "HOME";
+            ApplySpriteSwapToButton(homeButton, homeButtonLabel, btnMainMenuNormalSprite, btnMainMenuHoverSprite, "MAIN MENU");
         }
 
         if (isWin)
         {
             if (CurrentLevel < 3)
             {
-                // Menang Level 1 atau 2 -> Tampilkan 2 tombol: [ HOME ] dan [ LEVEL SELANJUTNYA ]
+                // Menang Level 1 atau 2 -> Tampilkan 2 tombol: [ MAIN MENU ] dan [ NEXT LEVEL ]
                 if (restartButton != null) restartButton.gameObject.SetActive(false);
                 if (nextLevelButton != null)
                 {
                     nextLevelButton.gameObject.SetActive(true);
-                    if (nextLevelButtonLabel != null)
-                    {
-                        nextLevelButtonLabel.text = $"LEVEL {CurrentLevel + 1} ➔";
-                    }
+                    ApplySpriteSwapToButton(nextLevelButton, nextLevelButtonLabel, btnNextLevelNormalSprite, btnNextLevelHoverSprite, $"LEVEL {CurrentLevel + 1} ➔");
                 }
             }
             else
             {
-                // Tamat Level 3 -> Tampilkan [ HOME ] dan [ MAIN LAGI ]
+                // Tamat Level 3 -> Tampilkan [ MAIN MENU ] dan [ TRY AGAIN ]
                 if (nextLevelButton != null) nextLevelButton.gameObject.SetActive(false);
                 if (restartButton != null)
                 {
                     restartButton.gameObject.SetActive(true);
-                    if (restartButtonLabel != null) restartButtonLabel.text = "MAIN LAGI";
+                    ApplySpriteSwapToButton(restartButton, restartButtonLabel, btnTryAgainNormalSprite, btnTryAgainHoverSprite, "TRY AGAIN");
                 }
             }
         }
         else
         {
-            // Kalah (Game Over) -> Tampilkan [ HOME ] dan [ COBA LAGI (RESTART) ]
+            // Kalah (Game Over) -> Tampilkan [ MAIN MENU ] dan [ TRY AGAIN ]
             if (nextLevelButton != null) nextLevelButton.gameObject.SetActive(false);
             if (restartButton != null)
             {
                 restartButton.gameObject.SetActive(true);
-                if (restartButtonLabel != null) restartButtonLabel.text = "COBA LAGI";
+                ApplySpriteSwapToButton(restartButton, restartButtonLabel, btnTryAgainNormalSprite, btnTryAgainHoverSprite, "TRY AGAIN");
             }
+        }
+    }
+
+    private static void ApplySpriteSwapToButton(Button btn, Text fallbackLabel, Sprite normalSprite, Sprite hoverAndPressedSprite, string fallbackText)
+    {
+        if (btn == null) return;
+
+        Image btnImg = btn.GetComponent<Image>();
+        if (normalSprite != null && btnImg != null)
+        {
+            btnImg.sprite = normalSprite;
+            btnImg.color = Color.white;
+            btnImg.type = Image.Type.Simple;
+            btnImg.preserveAspect = true;
+
+            btn.transition = Selectable.Transition.SpriteSwap;
+            SpriteState st = btn.spriteState;
+            st.highlightedSprite = hoverAndPressedSprite != null ? hoverAndPressedSprite : normalSprite;
+            st.pressedSprite = hoverAndPressedSprite != null ? hoverAndPressedSprite : normalSprite;
+            st.selectedSprite = hoverAndPressedSprite != null ? hoverAndPressedSprite : normalSprite;
+            btn.spriteState = st;
+
+            if (fallbackLabel != null)
+            {
+                fallbackLabel.text = "";
+                fallbackLabel.gameObject.SetActive(false);
+            }
+        }
+        else if (fallbackLabel != null)
+        {
+            fallbackLabel.gameObject.SetActive(true);
+            fallbackLabel.text = fallbackText;
         }
     }
 
@@ -614,17 +734,37 @@ public class ConsciousnessManager : MonoBehaviour
 
         if (consciousnessFillRect != null)
         {
-            consciousnessFillRect.anchorMax = new Vector2(ratio, 1f);
+            if (energyBarFillSprite != null && consciousnessFillImage != null && consciousnessFillImage.type == Image.Type.Filled)
+            {
+                consciousnessFillImage.fillAmount = ratio;
+            }
+            else if (energyBarFrameSprite == null)
+            {
+                consciousnessFillRect.anchorMax = new Vector2(ratio, consciousnessFillRect.anchorMax.y);
+            }
         }
 
         if (consciousnessFillImage != null)
         {
-            if (currentConsciousness < criticalThreshold)
-                consciousnessFillImage.color = new Color(0.95f, 0.22f, 0.22f, 1f);
-            else if (currentConsciousness < drowsyStartThreshold)
-                consciousnessFillImage.color = new Color(0.96f, 0.72f, 0.15f, 1f);
+            if (energyBarFillSprite != null)
+            {
+                // Jika menggunakan sprite ENERGY BAR.png biru strip, beri sedikit tint merah saat kritis agar tetap terbaca jelas
+                if (currentConsciousness < criticalThreshold)
+                    consciousnessFillImage.color = new Color(1.0f, 0.45f, 0.45f, 1f);
+                else if (currentConsciousness < drowsyStartThreshold)
+                    consciousnessFillImage.color = new Color(1.0f, 0.90f, 0.65f, 1f);
+                else
+                    consciousnessFillImage.color = Color.white;
+            }
             else
-                consciousnessFillImage.color = new Color(0.20f, 0.85f, 0.45f, 1f);
+            {
+                if (currentConsciousness < criticalThreshold)
+                    consciousnessFillImage.color = new Color(0.95f, 0.22f, 0.22f, 1f);
+                else if (currentConsciousness < drowsyStartThreshold)
+                    consciousnessFillImage.color = new Color(0.96f, 0.72f, 0.15f, 1f);
+                else
+                    consciousnessFillImage.color = new Color(0.20f, 0.85f, 0.45f, 1f);
+            }
         }
 
         if (consciousnessLabelText != null)
@@ -633,7 +773,22 @@ public class ConsciousnessManager : MonoBehaviour
             consciousnessLabelText.text = "";
         }
 
-        if (livesText != null)
+        if (heartIconImages != null && heartIconImages.Length > 0 && heartIconSprite != null)
+        {
+            for (int i = 0; i < heartIconImages.Length; i++)
+            {
+                if (heartIconImages[i] == null) continue;
+                bool alive = i < currentLives;
+                heartIconImages[i].color = alive
+                    ? Color.white
+                    : new Color(0.22f, 0.22f, 0.25f, 0.50f);
+            }
+            if (livesText != null)
+            {
+                livesText.text = "";
+            }
+        }
+        else if (livesText != null)
         {
             string hearts = "";
             for (int i = 0; i < maxLives; i++)
@@ -643,9 +798,19 @@ public class ConsciousnessManager : MonoBehaviour
             livesText.text = $"NYAWA: {hearts.Trim()}";
         }
 
+        float distProgress = 1f - Mathf.Clamp01(remainingDistanceKm / Mathf.Max(0.01f, startingDistanceKm));
+        if (distanceBarFillImage != null && kmBarFillSprite != null)
+        {
+            distanceBarFillImage.fillAmount = distProgress;
+        }
+        else if (distanceBarFillRect != null)
+        {
+            distanceBarFillRect.anchorMax = new Vector2(0.84f, Mathf.Lerp(0.06f, 0.94f, distProgress));
+        }
+
         if (distanceText != null)
         {
-            distanceText.text = $"🏠 LV.{CurrentLevel} | {remainingDistanceKm:F2} KM";
+            distanceText.text = $"LV.{CurrentLevel} | {remainingDistanceKm:F2} KM";
         }
 
         if (sleepWarningText != null)
@@ -931,56 +1096,213 @@ public class ConsciousnessManager : MonoBehaviour
             else bottomEyelidRect = t.GetComponent<RectTransform>();
         }
 
-        // 2. Bar Kesadaran (Pojok Kiri Atas)
-        if (consciousnessFillRect == null)
+        // 2. Bar Kesadaran (Pojok Kiri Atas) + Sprite CANVAS ENERGY BAR.png & ENERGY BAR.png
+        Transform barRoot = transform.Find("HUD_ConsciousnessBar");
+        bool isNewBarRoot = false;
+        if (barRoot == null)
         {
-            Transform barRoot = transform.Find("HUD_ConsciousnessBar");
-            if (barRoot == null)
+            RectTransform bg = PhoneUIHelper.CreatePanel("HUD_ConsciousnessBar", transform, Color.white, new Vector2(0.025f, 0.885f), new Vector2(0.31f, 0.965f));
+            bg.GetComponent<Image>().raycastTarget = false;
+            barRoot = bg;
+            isNewBarRoot = true;
+
+            consciousnessFillRect = PhoneUIHelper.CreatePanel("Fill", bg, Color.white, new Vector2(0.148f, 0.25f), new Vector2(0.982f, 0.75f));
+            consciousnessFillImage = consciousnessFillRect.GetComponent<Image>();
+            consciousnessFillImage.raycastTarget = false;
+
+            consciousnessLabelText = PhoneUIHelper.CreateText("Label", bg, "", Color.white, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f), TextAnchor.MiddleCenter, 28);
+        }
+        else
+        {
+            Transform fill = barRoot.Find("Fill");
+            if (fill != null)
             {
-                RectTransform bg = PhoneUIHelper.CreatePanel("HUD_ConsciousnessBar", transform, new Color(0.08f, 0.10f, 0.14f, 0.85f), new Vector2(0.03f, 0.90f), new Vector2(0.32f, 0.95f));
-                bg.GetComponent<Image>().raycastTarget = false;
+                consciousnessFillRect = fill.GetComponent<RectTransform>();
+                consciousnessFillImage = fill.GetComponent<Image>();
+            }
+            Transform lbl = barRoot.Find("Label");
+            if (lbl != null) consciousnessLabelText = lbl.GetComponent<Text>();
+        }
 
-                consciousnessFillRect = PhoneUIHelper.CreatePanel("Fill", bg, new Color(0.20f, 0.85f, 0.45f, 1f), new Vector2(0f, 0f), new Vector2(1f, 1f));
-                consciousnessFillImage = consciousnessFillRect.GetComponent<Image>();
-                consciousnessFillImage.raycastTarget = false;
+        if (barRoot != null && energyBarFrameSprite != null)
+        {
+            Image frameImg = barRoot.GetComponent<Image>();
+            if (frameImg != null && frameImg.sprite == null)
+            {
+                frameImg.sprite = energyBarFrameSprite;
+                frameImg.color = Color.white;
+                frameImg.type = Image.Type.Simple;
+                frameImg.preserveAspect = false;
+            }
+        }
 
-                consciousnessLabelText = PhoneUIHelper.CreateText("Label", bg, "", Color.white, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f), TextAnchor.MiddleCenter, 28);
+        if (consciousnessFillRect != null && consciousnessFillImage != null && energyBarFillSprite != null)
+        {
+            if (consciousnessFillImage.sprite == null)
+            {
+                if (isNewBarRoot)
+                {
+                    PhoneUIHelper.ApplyAnchorBox(consciousnessFillRect, new Vector2(0.148f, 0.25f), new Vector2(0.982f, 0.75f));
+                }
+                consciousnessFillImage.sprite = energyBarFillSprite;
+                consciousnessFillImage.color = Color.white;
+                consciousnessFillImage.type = Image.Type.Filled;
+                consciousnessFillImage.fillMethod = Image.FillMethod.Horizontal;
+                consciousnessFillImage.fillOrigin = (int)Image.OriginHorizontal.Left;
+                consciousnessFillImage.fillAmount = 1f;
+            }
+        }
+
+        // 3. Nyawa (3 Ikon HEART.png di Kiri Atas tepat di bawah Energy Bar)
+        Transform livesTf = transform.Find("HUD_LivesText");
+        if (livesTf == null)
+        {
+            livesText = PhoneUIHelper.CreateText("HUD_LivesText", transform, "", Color.white, new Vector2(0.03f, 0.805f), new Vector2(0.21f, 0.875f), TextAnchor.MiddleLeft, 28);
+            livesTf = livesText.transform;
+        }
+        else
+        {
+            livesText = livesTf.GetComponent<Text>();
+        }
+
+        if (livesTf != null && heartIconSprite != null)
+        {
+            if (livesText != null) livesText.text = "";
+
+            if (heartIconImages == null || heartIconImages.Length != 3)
+                heartIconImages = new Image[3];
+
+            for (int i = 0; i < 3; i++)
+            {
+                Transform hTf = livesTf.Find($"Heart_Icon_{i + 1}");
+                if (hTf == null)
+                {
+                    float minX = i * 0.34f;
+                    float maxX = minX + 0.30f;
+                    RectTransform hRt = PhoneUIHelper.CreatePanel($"Heart_Icon_{i + 1}", livesTf, Color.white, new Vector2(minX, 0.05f), new Vector2(maxX, 0.95f));
+                    hTf = hRt;
+                }
+                Image hImg = hTf.GetComponent<Image>();
+                if (hImg != null)
+                {
+                    if (hImg.sprite == null)
+                    {
+                        hImg.sprite = heartIconSprite;
+                        hImg.color = Color.white;
+                        hImg.preserveAspect = true;
+                    }
+                    hImg.raycastTarget = false;
+                    heartIconImages[i] = hImg;
+                }
+            }
+        }
+
+        // 4. SISI KANAN: Tombol PAUSE di Pojok Kanan Atas + Bar Jarak KM Vertikal tepat di bawahnya!
+        // 4a. Tombol Pause di Pojok Kanan Atas (PAUSE.png & Hover/Toggle PAUSE 2.png)
+        if (pauseIdleSprite != null)
+        {
+            Transform pauseTf = transform.Find("HUD_PauseButton");
+            if (pauseTf == null)
+            {
+                pauseHudButton = PhoneUIHelper.CreateButton(
+                    "HUD_PauseButton",
+                    transform,
+                    "",
+                    Color.white,
+                    Color.white,
+                    new Vector2(0.93f, 0.885f),
+                    new Vector2(0.98f, 0.965f),
+                    out Text pauseLbl,
+                    24
+                );
+                if (pauseLbl != null) pauseLbl.gameObject.SetActive(false);
+                pauseTf = pauseHudButton.transform;
             }
             else
             {
-                Transform fill = barRoot.Find("Fill");
-                if (fill != null)
+                pauseHudButton = pauseTf.GetComponent<Button>();
+            }
+
+            if (pauseHudButton != null)
+            {
+                pauseHudButtonImage = pauseHudButton.GetComponent<Image>();
+                if (pauseHudButtonImage != null && pauseHudButtonImage.sprite == null)
                 {
-                    consciousnessFillRect = fill.GetComponent<RectTransform>();
-                    consciousnessFillImage = fill.GetComponent<Image>();
+                    pauseHudButtonImage.sprite = pauseIdleSprite;
+                    pauseHudButtonImage.color = Color.white;
+                    pauseHudButtonImage.preserveAspect = true;
                 }
-                Transform lbl = barRoot.Find("Label");
-                if (lbl != null) consciousnessLabelText = lbl.GetComponent<Text>();
+
+                pauseHudButton.transition = Selectable.Transition.SpriteSwap;
+                SpriteState pst = pauseHudButton.spriteState;
+                pst.highlightedSprite = pauseHoverOrPlaySprite != null ? pauseHoverOrPlaySprite : pauseIdleSprite;
+                pst.pressedSprite = pauseHoverOrPlaySprite != null ? pauseHoverOrPlaySprite : pauseIdleSprite;
+                pauseHudButton.spriteState = pst;
+
+                pauseHudButton.onClick.RemoveAllListeners();
+                pauseHudButton.onClick.AddListener(ToggleHudPause);
             }
         }
 
-        // 3. Teks Nyawa
-        if (livesText == null)
+        // 4b. Bar KM Vertikal di SISI KANAN tepat di bawah Tombol Pause (CANVAS BAR KM.png & BAR KM.png)
+        if (kmBarFrameSprite != null && kmBarFillSprite != null)
         {
-            Transform t = transform.Find("HUD_LivesText");
-            if (t == null)
+            Transform kmBarTf = transform.Find("HUD_VerticalKmBar");
+            if (kmBarTf == null)
             {
-                livesText = PhoneUIHelper.CreateText("HUD_LivesText", transform, "NYAWA: ❤️ ❤️ ❤️", Color.white, new Vector2(0.03f, 0.84f), new Vector2(0.32f, 0.89f), TextAnchor.MiddleLeft, 28);
+                RectTransform kmFrameRt = PhoneUIHelper.CreatePanel("HUD_VerticalKmBar", transform, Color.white, new Vector2(0.935f, 0.36f), new Vector2(0.975f, 0.86f));
+                kmFrameRt.GetComponent<Image>().raycastTarget = false;
+                kmBarTf = kmFrameRt;
             }
-            else livesText = t.GetComponent<Text>();
+
+            Image kmFrameImg = kmBarTf.GetComponent<Image>();
+            if (kmFrameImg != null)
+            {
+                if (kmFrameImg.sprite == null)
+                {
+                    kmFrameImg.sprite = kmBarFrameSprite;
+                    kmFrameImg.color = Color.white;
+                    kmFrameImg.preserveAspect = true;
+                }
+                kmFrameImg.raycastTarget = false;
+            }
+
+            Transform kmFillTf = kmBarTf.Find("KM_Fill");
+            if (kmFillTf == null)
+            {
+                RectTransform fillRt = PhoneUIHelper.CreatePanel("KM_Fill", kmBarTf, Color.white, new Vector2(0.18f, 0.05f), new Vector2(0.82f, 0.95f));
+                kmFillTf = fillRt;
+            }
+
+            distanceBarFillRect = kmFillTf.GetComponent<RectTransform>();
+            distanceBarFillImage = kmFillTf.GetComponent<Image>();
+            if (distanceBarFillImage != null)
+            {
+                if (distanceBarFillImage.sprite == null)
+                {
+                    distanceBarFillImage.sprite = kmBarFillSprite;
+                    distanceBarFillImage.color = Color.white;
+                    distanceBarFillImage.type = Image.Type.Filled;
+                    distanceBarFillImage.fillMethod = Image.FillMethod.Vertical;
+                    distanceBarFillImage.fillOrigin = (int)Image.OriginVertical.Bottom;
+                    distanceBarFillImage.fillAmount = 0f;
+                }
+                distanceBarFillImage.raycastTarget = false;
+            }
         }
 
-        // 4. Teks Jarak Tempuh
-        if (distanceText == null)
+        // 4c. Label Teks Jarak Tempuh (Opsional/Pendamping di dekat Bar KM Kanan)
+        Transform distRoot = transform.Find("HUD_DistanceText");
+        if (distRoot == null)
         {
-            Transform t = transform.Find("HUD_DistanceText");
-            if (t == null)
-            {
-                RectTransform distBg = PhoneUIHelper.CreatePanel("HUD_DistanceText", transform, new Color(0.08f, 0.10f, 0.14f, 0.85f), new Vector2(0.76f, 0.90f), new Vector2(0.97f, 0.95f));
-                distBg.GetComponent<Image>().raycastTarget = false;
-                distanceText = PhoneUIHelper.CreateText("Text", distBg, "🏠 JARAK: 2.00 KM", new Color(0.4f, 0.9f, 1f), new Vector2(0.05f, 0.05f), new Vector2(0.95f, 0.95f), TextAnchor.MiddleCenter, 28);
-            }
-            else distanceText = t.GetComponentInChildren<Text>();
+            RectTransform distBg = PhoneUIHelper.CreatePanel("HUD_DistanceText", transform, new Color(0.08f, 0.10f, 0.14f, 0.82f), new Vector2(0.75f, 0.895f), new Vector2(0.915f, 0.955f));
+            distBg.GetComponent<Image>().raycastTarget = false;
+            distanceText = PhoneUIHelper.CreateText("Text", distBg, "LV.1 | 1.50 KM", new Color(1f, 0.92f, 0.40f), new Vector2(0.05f, 0.05f), new Vector2(0.95f, 0.95f), TextAnchor.MiddleCenter, 28);
+            distRoot = distBg;
+        }
+        else
+        {
+            distanceText = distRoot.GetComponentInChildren<Text>();
         }
 
         // 5. Peringatan Ngantuk
@@ -1019,7 +1341,51 @@ public class ConsciousnessManager : MonoBehaviour
             }
         }
 
+        if (endGamePanel != null)
+        {
+            Transform bannerT = endGamePanel.transform.Find("Title_BannerImage");
+            if (bannerT == null)
+            {
+                RectTransform bannerRt = PhoneUIHelper.CreatePanel(
+                    "Title_BannerImage",
+                    endGamePanel.transform,
+                    Color.white,
+                    new Vector2(0.18f, 0.56f),
+                    new Vector2(0.82f, 0.80f)
+                );
+                bannerRt.GetComponent<Image>().raycastTarget = false;
+                bannerT = bannerRt;
+            }
+            endGameTitleBannerImage = bannerT.GetComponent<Image>();
+            if (endGameTitleBannerImage != null)
+            {
+                endGameTitleBannerImage.preserveAspect = true;
+                if (youLoseTitleSprite != null)
+                {
+                    endGameTitleBannerImage.sprite = youLoseTitleSprite;
+                    endGameTitleBannerImage.color = Color.white;
+                }
+            }
+        }
+
         EnsureEndScreenButtonsBuilt();
+        ConfigureEndScreenButtons(isWin: false);
+        PhoneUIHelper.ApplyProvidedFontToAllSceneTexts(customGameFont, customGameTmpFont);
+    }
+
+    public void ToggleHudPause()
+    {
+        if (isGameEnded) return;
+
+        isGamePausedByHud = !isGamePausedByHud;
+        Time.timeScale = isGamePausedByHud ? 0f : 1f;
+
+        if (pauseHudButtonImage != null)
+        {
+            pauseHudButtonImage.sprite = isGamePausedByHud && pauseHoverOrPlaySprite != null
+                ? pauseHoverOrPlaySprite
+                : pauseIdleSprite;
+        }
     }
 
     private void EnsureEndScreenButtonsBuilt()
@@ -1074,12 +1440,6 @@ public class ConsciousnessManager : MonoBehaviour
         }
         else
         {
-            // Geser sedikit ke sisi kanan agar berdampingan rapi dengan tombol HOME
-            RectTransform rt = restartButton.GetComponent<RectTransform>();
-            if (rt != null)
-            {
-                PhoneUIHelper.ApplyAnchorBox(rt, new Vector2(0.52f, 0.24f), new Vector2(0.78f, 0.35f));
-            }
             if (restartButtonLabel == null)
             {
                 restartButtonLabel = restartButton.GetComponentInChildren<Text>(true);

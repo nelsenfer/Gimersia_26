@@ -15,11 +15,30 @@ public class NPCSpawner : MonoBehaviour
     [Header("Prefab Mobil NPC")]
     [SerializeField] private GameObject[] npcPrefabs;
 
-    [Header("Mobil Kampanye Spesial (Hanya Muncul 1 Kali!)")]
-    [Tooltip("Prefab Mobil Kampanye (mobil kampanye benar.prefab) yang punya audio khusus Reveille & hanya muncul maksimal 1x per permainan")]
+    [Header("2 NPC Troll Spesial (Mobil Kampanye & Kapal Bajak Laut)")]
+    [Tooltip("Prefab NPC Troll 1: Mobil Kampanye (mobil kampanye benar.prefab - Audio: Reveille Loud FAST.wav)")]
     [SerializeField] private GameObject campaignNpcPrefab;
-    [Tooltip("Pada spawn NPC ke-berapa Mobil Kampanye dijamin muncul 1 kali (Default: spawn ke-3 agar pemain pasti ketemu 1x!)")]
-    [SerializeField] private int campaignCarSpawnAtCount = 3;
+    [Tooltip("Prefab NPC Troll 2: Kapal Bajak Laut (Bajak Lawt Benar.prefab - Audio: pirate with radio full video.mp3)")]
+    [SerializeField] private GameObject pirateShipNpcPrefab;
+    [Tooltip("Pada spawn NPC ke-berapa NPC Troll pertama muncul (Default: mobil ke-3)")]
+    [SerializeField] private int firstTrollSpawnAtCount = 3;
+    [Tooltip("Interval kemunculan NPC Troll berikutnya secara bergantian (Default: tiap 5 mobil sekali -> mobil ke-3, ke-8, ke-13, dst. agar muncul ~3x di Level 1)")]
+    [SerializeField] private int trollSpawnIntervalCount = 5;
+    [Tooltip("Jarak despawn jauh di belakang pemain khusus untuk NPC Troll (meter) agar suara 3D-nya fade-out secara natural sampai habis sebelum objek dihapus (Default: 82m)")]
+    [SerializeField] private float trollDespawnBehindDistance = 82f;
+
+    [Header("Manuver Belok Komedi NPC Troll (Setelah Player Menyalip Mobil di Depannya)")]
+    [Tooltip("Aktifkan fitur NPC Troll (Kampanye & Kapal Bajak Laut) bisa tiba-tiba banting setir pindah jalur tepat setelah pemain menyalip mobil di depannya")]
+    [SerializeField] private bool enableTrollLaneSwitch = true;
+    [Tooltip("Peluang (0 - 100%) NPC Troll melakukan manuver banting setir pindah jalur (Default: 75%)")]
+    [Range(0, 100)]
+    [SerializeField] private int trollLaneSwitchChancePercent = 75;
+    [Tooltip("Jarak maksimal di depan pemain (meter) saat NPC Troll mulai banting setir setelah mobil di depannya lewat (Default: 32m = sudah keluar dari kabut & terlihat jelas)")]
+    [SerializeField] private float trollSwitchMaxTriggerDistance = 32f;
+    [Tooltip("Jarak minimal aman di depan pemain (meter) agar pemain masih punya waktu reaksi ~1.6 - 2.2 detik untuk menghindar (Default: 19m)")]
+    [SerializeField] private float trollSwitchMinSafeDistance = 19f;
+    [Tooltip("Durasi geser pindah jalur NPC Troll (detik)")]
+    [SerializeField] private float trollLaneSwitchDuration = 0.48f;
 
     [Header("Pengaturan 2 Jalur")]
     [SerializeField] private float roadCenterX = -1.63f;
@@ -64,7 +83,11 @@ public class NPCSpawner : MonoBehaviour
     private class ActiveNPC
     {
         public GameObject obj;
+        public EnvironmentMover mover;
         public int laneIndex;
+        public bool isMajorTroll;
+        public bool willSwitchLane;
+        public bool hasSwitchedLane;
     }
 
     private readonly List<ActiveNPC> activeNPCs =
@@ -78,7 +101,7 @@ public class NPCSpawner : MonoBehaviour
     // -1 berarti belum ada NPC yang berhasil spawn.
     private int lastSpawnedLane = -1;
     private int totalNormalNpcSpawnCount = 0;
-    private bool hasSpawnedCampaignNpc = false;
+    private int nextTrollVariantIndex = 0; // 0 = Mobil Kampanye, 1 = Kapal Bajak Laut (bergantian!)
 
     private static bool spawningEnabled = true;
 
@@ -91,7 +114,7 @@ public class NPCSpawner : MonoBehaviour
 
     private void OnValidate()
     {
-        AutoBindCampaignPrefab();
+        AutoBindTrollPrefabs();
     }
 
     private void Awake()
@@ -99,17 +122,23 @@ public class NPCSpawner : MonoBehaviour
         spawningEnabled = true;
         lastSpawnedLane = -1;
         totalNormalNpcSpawnCount = 0;
-        hasSpawnedCampaignNpc = false;
-        AutoBindCampaignPrefab();
+        nextTrollVariantIndex = 0;
+        AutoBindTrollPrefabs();
     }
 
-    private void AutoBindCampaignPrefab()
+    private void AutoBindTrollPrefabs()
     {
 #if UNITY_EDITOR
         if (campaignNpcPrefab == null)
         {
             campaignNpcPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/ASSET FIX asli/mobil kampanye benar.prefab"
+            );
+        }
+        if (pirateShipNpcPrefab == null)
+        {
+            pirateShipNpcPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/ASSET FIX asli/Bajak Lawt Benar.prefab"
             );
         }
 #endif
@@ -168,7 +197,30 @@ public class NPCSpawner : MonoBehaviour
         if (!spawningEnabled)
             return;
 
-        activeNPCs.RemoveAll(item => item.obj == null);
+        Vector3 moveDir = GetMoveDirection();
+        Vector3 aheadDir = -moveDir;
+
+        // Bersihkan NPC yang sudah hancur ATAU sudah lewat lebih dari 15m di belakang mobil pemain
+        // supaya NPC Troll yang sedang memutar fade-out audio hingga 82m di belakang TIDAK menahan slot maxActiveNPCs!
+        activeNPCs.RemoveAll(item =>
+        {
+            if (item.obj == null)
+                return true;
+
+            if (playerCar != null)
+            {
+                float signedDistanceAhead = Vector3.Dot(
+                    item.obj.transform.position - playerCar.position,
+                    aheadDir
+                );
+                if (signedDistanceAhead < -15f)
+                    return true;
+            }
+
+            return false;
+        });
+
+        UpdateTrollLaneSwitchManeuvers(aheadDir);
 
         if (Time.time < nextSpawnTime)
             return;
@@ -310,23 +362,42 @@ public class NPCSpawner : MonoBehaviour
             playerSpeed - npcForwardSpeed
         );
 
+        bool isTrollNpc = IsTrollNpcName(npcObj.name);
+        float effectiveBehindDist = isTrollNpc
+            ? Mathf.Max(despawnBehindDistance, trollDespawnBehindDistance)
+            : despawnBehindDistance;
+
         float totalTravelDistance = Mathf.Max(
             40f,
-            distanceAhead + despawnBehindDistance
+            distanceAhead + effectiveBehindDist
         );
+
+        // Matikan visual mesh & collider saat sudah lewat despawnBehindDistance (25m di belakang kamera),
+        // tetapi biarkan GameObject + AudioSource 3D NPC Troll tetap jalan sampai 82m di belakang agar fade-out suaranya 100% natural!
+        float hideVisualsAtDistance = distanceAhead + despawnBehindDistance;
 
         mover.Initialize(
             moveDir,
             relativeSpeed,
-            totalTravelDistance
+            totalTravelDistance,
+            hideVisualsAtDistance
         );
 
         GameplayAudioManager.AttachNPCEngineAudio(npcObj);
 
+        bool isMajorTroll = IsMajorTrollNpcName(npcObj.name);
+        bool rollWillSwitch = enableTrollLaneSwitch &&
+                              isMajorTroll &&
+                              Random.Range(0, 100) < trollLaneSwitchChancePercent;
+
         activeNPCs.Add(new ActiveNPC
         {
             obj = npcObj,
-            laneIndex = chosenLane
+            mover = mover,
+            laneIndex = chosenLane,
+            isMajorTroll = isMajorTroll,
+            willSwitchLane = rollWillSwitch,
+            hasSwitchedLane = false
         });
 
         // Simpan lane terakhir yang berhasil digunakan.
@@ -690,6 +761,124 @@ public class NPCSpawner : MonoBehaviour
         Debug.Log("===== END NPC DIAGNOSTIC =====");
     }
 
+    /// <summary>
+    /// Mengecek apakah ada NPC Troll yang siap banting setir pindah jalur:
+    /// 1. Pemain SUDAH menyalip/melewati mobil NPC di depannya (tidak ada mobil lain di antara pemain dan NPC Troll).
+    /// 2. Jarak NPC Troll berada di zona terlihat & wajar (19m - 32m di depan pemain) sehingga pemain masih sempat membelokkan setir.
+    /// 3. Jalur tujuan aman dari mobil di belakang NPC Troll (tidak menabrak/menumpuk dengan mobil lain).
+    /// </summary>
+    private void UpdateTrollLaneSwitchManeuvers(Vector3 aheadDir)
+    {
+        if (!enableTrollLaneSwitch || playerCar == null || activeNPCs.Count == 0)
+            return;
+
+        float minSafeDist = Mathf.Max(14f, trollSwitchMinSafeDistance);
+        float maxTriggerDist = Mathf.Max(minSafeDist + 6f, trollSwitchMaxTriggerDistance);
+
+        for (int i = 0; i < activeNPCs.Count; i++)
+        {
+            ActiveNPC troll = activeNPCs[i];
+            if (troll == null || troll.obj == null || !troll.isMajorTroll || !troll.willSwitchLane || troll.hasSwitchedLane)
+                continue;
+
+            float trollDistAhead = Vector3.Dot(
+                troll.obj.transform.position - playerCar.position,
+                aheadDir
+            );
+
+            // Jika sudah terlalu dekat dan belum sempat belok, batalkan agar tidak curang/mustahil dihindari
+            if (trollDistAhead < minSafeDist)
+            {
+                troll.hasSwitchedLane = true;
+                continue;
+            }
+
+            // Tunggu sampai NPC Troll masuk ke jarak ideal di depan kaca mobil (19m - 32m)
+            if (trollDistAhead > maxTriggerDist)
+                continue;
+
+            int targetLane = 1 - troll.laneIndex;
+            bool hasCarInBetweenPlayerAndTroll = false;
+            bool isTargetLaneBlockedNearTroll = false;
+
+            for (int j = 0; j < activeNPCs.Count; j++)
+            {
+                if (i == j) continue;
+                ActiveNPC other = activeNPCs[j];
+                if (other == null || other.obj == null) continue;
+
+                float otherDistAhead = Vector3.Dot(
+                    other.obj.transform.position - playerCar.position,
+                    aheadDir
+                );
+
+                // Syarat 1: Tunggu sampai pemain SUDAH menyalip/melewati mobil yang ada di depan pemain
+                // (Jangan belok kalau masih ada mobil lain di antara hidung mobil pemain [-2m] dan NPC Troll!)
+                if (otherDistAhead > -2.5f && otherDistAhead < trollDistAhead)
+                {
+                    hasCarInBetweenPlayerAndTroll = true;
+                    break;
+                }
+
+                // Syarat 2: Pastikan di jalur tujuan tidak ada mobil lain yang terlalu berdekatan dengan NPC Troll
+                if (other.laneIndex == targetLane && Mathf.Abs(otherDistAhead - trollDistAhead) < minCrossLaneGap * 0.85f)
+                {
+                    isTargetLaneBlockedNearTroll = true;
+                    break;
+                }
+            }
+
+            if (hasCarInBetweenPlayerAndTroll || isTargetLaneBlockedNearTroll)
+                continue;
+
+            // Semua syarat terpenuhi! Pemain baru saja menyalip mobil di depannya -> NPC Troll langsung banting setir pindah jalur!
+            troll.hasSwitchedLane = true;
+            troll.laneIndex = targetLane;
+
+            float newLaneX = GetLaneX(targetLane);
+            float currentCenterOffsetX = GetVisualCenterOffsetX(troll.obj);
+            float targetRootX = newLaneX - currentCenterOffsetX;
+
+            if (troll.mover != null)
+            {
+                troll.mover.StartTrollLaneChange(targetRootX, trollLaneSwitchDuration, 13f);
+                GameplayAudioManager.PlayNPCLaneChangeSwerve(troll.obj);
+            }
+        }
+    }
+
+    private float GetVisualCenterOffsetX(GameObject obj)
+    {
+        Renderer[] renderers = obj.GetComponentsInChildren<Renderer>(true);
+        if (renderers == null || renderers.Length == 0)
+            return 0f;
+
+        Bounds bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+        {
+            bounds.Encapsulate(renderers[i].bounds);
+        }
+
+        return bounds.center.x - obj.transform.position.x;
+    }
+
+    private bool IsMajorTrollNpcName(string objName)
+    {
+        if (string.IsNullOrEmpty(objName)) return false;
+        return objName.IndexOf("kampanye", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+               objName.IndexOf("Bajak", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+               objName.IndexOf("Pirate", System.StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private bool IsTrollNpcName(string objName)
+    {
+        if (string.IsNullOrEmpty(objName)) return false;
+        return objName.IndexOf("kampanye", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+               objName.IndexOf("Bajak", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+               objName.IndexOf("Pirate", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+               objName.IndexOf("Angkot", System.StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     // Create NPC prefab or placeholder
     private GameObject CreateNPCObject(
         Vector3 spawnPosition,
@@ -705,32 +894,29 @@ public class NPCSpawner : MonoBehaviour
 
         GameObject selectedPrefab = null;
 
-        // 1. Cek apakah waktunya spawn Mobil Kampanye (Hanya 1 kali per game!)
-        int targetCampaignOrder = Mathf.Max(1, campaignCarSpawnAtCount);
-        if (!hasSpawnedCampaignNpc && totalNormalNpcSpawnCount >= targetCampaignOrder)
+        // 1. Cek apakah waktunya spawn NPC Troll Spesial (Mobil Kampanye & Kapal Bajak Laut bergantian!)
+        // Muncul pertama di firstTrollSpawnAtCount (mobil ke-3), lalu setiap trollSpawnIntervalCount berikutnya (mobil ke-8, ke-13, dst.)
+        int firstOrder = Mathf.Max(1, firstTrollSpawnAtCount);
+        int interval = Mathf.Max(2, trollSpawnIntervalCount);
+        bool isTrollTurn = (totalNormalNpcSpawnCount == firstOrder) ||
+                           (totalNormalNpcSpawnCount > firstOrder && (totalNormalNpcSpawnCount - firstOrder) % interval == 0);
+
+        if (isTrollTurn)
         {
-            if (campaignNpcPrefab != null)
+            if (nextTrollVariantIndex == 0)
             {
-                selectedPrefab = campaignNpcPrefab;
-                hasSpawnedCampaignNpc = true;
+                selectedPrefab = campaignNpcPrefab != null ? campaignNpcPrefab : pirateShipNpcPrefab;
+                nextTrollVariantIndex = 1;
             }
-            else if (npcPrefabs != null)
+            else
             {
-                for (int i = 0; i < npcPrefabs.Length; i++)
-                {
-                    if (npcPrefabs[i] != null &&
-                        npcPrefabs[i].name.IndexOf("kampanye", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        selectedPrefab = npcPrefabs[i];
-                        hasSpawnedCampaignNpc = true;
-                        break;
-                    }
-                }
+                selectedPrefab = pirateShipNpcPrefab != null ? pirateShipNpcPrefab : campaignNpcPrefab;
+                nextTrollVariantIndex = 0;
             }
         }
 
-        // 2. Jika bukan giliran Mobil Kampanye (atau Mobil Kampanye sudah pernah muncul 1x),
-        // pilih dari daftar npcPrefabs tapi SKIP prefab kampanye agar tidak pernah muncul ke-2 kalinya!
+        // 2. Jika bukan giliran NPC Troll (Mobil Kampanye / Kapal Bajak Laut),
+        // pilih dari daftar npcPrefabs standar (dan skip prefab kampanye / kapal bajak laut agar ritmenya tetap terjaga rapi!)
         if (selectedPrefab == null && npcPrefabs != null && npcPrefabs.Length > 0)
         {
             List<GameObject> candidates = new List<GameObject>();
@@ -739,12 +925,13 @@ public class NPCSpawner : MonoBehaviour
                 GameObject p = npcPrefabs[i];
                 if (p == null) continue;
 
-                bool isCampaign = (campaignNpcPrefab != null && p == campaignNpcPrefab) ||
-                                  p.name.IndexOf("kampanye", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                bool isSpecialTroll = (campaignNpcPrefab != null && p == campaignNpcPrefab) ||
+                                      (pirateShipNpcPrefab != null && p == pirateShipNpcPrefab) ||
+                                      p.name.IndexOf("kampanye", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                      p.name.IndexOf("Bajak", System.StringComparison.OrdinalIgnoreCase) >= 0;
 
-                if (isCampaign)
+                if (isSpecialTroll)
                 {
-                    // Jangan masukkan ke pool random jika sudah pernah muncul 1x (atau jika kita menunggu urutan campaignCarSpawnAtCount)
                     continue;
                 }
 
@@ -755,14 +942,9 @@ public class NPCSpawner : MonoBehaviour
             {
                 selectedPrefab = candidates[Random.Range(0, candidates.Count)];
             }
-            else if (!hasSpawnedCampaignNpc)
+            else
             {
                 selectedPrefab = npcPrefabs[Random.Range(0, npcPrefabs.Length)];
-                if (selectedPrefab != null &&
-                    selectedPrefab.name.IndexOf("kampanye", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    hasSpawnedCampaignNpc = true;
-                }
             }
         }
 

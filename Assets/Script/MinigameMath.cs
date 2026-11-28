@@ -21,6 +21,9 @@ public class MinigameMath : MonoBehaviour
     [SerializeField] private Color correctButtonColor = new Color(0.18f, 0.80f, 0.44f, 1f);
     [SerializeField] private Color wrongButtonColor = new Color(0.90f, 0.25f, 0.25f, 1f);
 
+    [Header("Asset Background Kuis MTK (Otomatis Terisi KONTEN 2 BG.png)")]
+    [SerializeField] private Sprite mathBackgroundSprite;
+
     [Header("Referensi UI")]
     [SerializeField] private Image backgroundPanel;
     [SerializeField] private Text headerText;
@@ -95,7 +98,15 @@ public class MinigameMath : MonoBehaviour
         if (backgroundPanel == null)
             backgroundPanel = gameObject.AddComponent<Image>();
 
-        backgroundPanel.color = baseBackgroundColor;
+        if (mathBackgroundSprite != null)
+        {
+            backgroundPanel.sprite = mathBackgroundSprite;
+            backgroundPanel.color = Color.white;
+        }
+        else
+        {
+            backgroundPanel.color = baseBackgroundColor;
+        }
         backgroundPanel.raycastTarget = true;
 
         if (headerText == null)
@@ -184,14 +195,31 @@ public class MinigameMath : MonoBehaviour
         }
     }
 
+    private void AutoBindMathSpritesInEditor()
+    {
+#if UNITY_EDITOR
+        if (mathBackgroundSprite == null)
+        {
+            mathBackgroundSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprite/Ingame/KONTEN 2 BG.png");
+        }
+#endif
+    }
+
     private void OnValidate()
     {
+        AutoBindMathSpritesInEditor();
         AutoBindExistingUI();
     }
 
     private void Awake()
     {
+        AutoBindMathSpritesInEditor();
         BuildPlaceholderUI();
+        if (backgroundPanel != null && mathBackgroundSprite != null)
+        {
+            backgroundPanel.sprite = mathBackgroundSprite;
+            backgroundPanel.color = Color.white;
+        }
         BindButtons();
     }
 

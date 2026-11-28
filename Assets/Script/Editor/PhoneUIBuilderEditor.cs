@@ -39,14 +39,84 @@ public static class PhoneUIBuilderEditor
             EditorUtility.SetDirty(phoneScreen);
         }
 
-        // Pastikan GameplayHUD_Canvas & ConsciousnessManager juga ada di Scene
+        // Pastikan semua PNG di folder Assets/Sprite/ dan Assets/Asset fix/Button dan UI/ berformat Sprite (2D and UI)
+        EnsureAllUISpriteAssetsConfigured();
+
+        // Pastikan GameplayHUD_Canvas & ConsciousnessManager juga ada di Scene & memakai sprite UI terbaru
         EnsureConsciousnessHUDExists();
+
+        // Jika ScreenBackground sudah ada, pastikan sprite Minigame (Kucing, Kuis MTK BG, Mangkok Bakso) terpasang otomatis
+        if (phoneScreen != null)
+        {
+            phoneScreen.AutoBindReferences();
+            EditorUtility.SetDirty(phoneScreen);
+        }
 
         // Pastikan GameplayAudioManager juga ada di Scene agar user bisa langsung drag & drop AudioClip di Inspector
         EnsureAudioManagerExists();
 
         // Pastikan CameraPivot pas di titik pusat mata Main Camera (Scale 1,1,1)
         EnsureCameraPivotAligned();
+
+        // Terapkan font Dimbo Regular ke seluruh komponen Text & TMP_Text yang ada di Scene aktif
+        ApplyProvidedFontToAllTextsInActiveScene(logResult: false);
+    }
+
+    [MenuItem("Tools/Gimersia/Pastikan Semua Gambar UI Berformat Sprite (2D and UI)")]
+    public static void EnsureAllUISpriteAssetsConfigured()
+    {
+        string[] uiSpriteFolders = new string[]
+        {
+            "Assets/Sprite"
+        };
+
+        string[] guids = AssetDatabase.FindAssets("t:Texture2D", uiSpriteFolders);
+        int converted = 0;
+
+        for (int i = 0; i < guids.Length; i++)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+            if (string.IsNullOrEmpty(path)) continue;
+
+            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer != null && (importer.textureType != TextureImporterType.Sprite || importer.spriteImportMode == SpriteImportMode.None))
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+                importer.SaveAndReimport();
+                converted++;
+            }
+        }
+
+        if (converted > 0)
+        {
+            Debug.Log($"<color=lime>[Gimersia UI Sprites]</color> Mengubah {converted} file PNG di folder Sprite menjadi Sprite (2D and UI)!");
+        }
+    }
+
+    [MenuItem("Tools/Gimersia/Terapkan Font Dimbo ke Semua Text di Scene")]
+    public static void ApplyProvidedFontMenuCommand()
+    {
+        ApplyProvidedFontToAllTextsInActiveScene(logResult: true);
+    }
+
+    private static void ApplyProvidedFontToAllTextsInActiveScene(bool logResult)
+    {
+        int changed = PhoneUIHelper.ApplyProvidedFontToAllSceneTexts();
+        if (changed > 0)
+        {
+            EditorSceneManager.MarkAllScenesDirty();
+            if (logResult)
+            {
+                Debug.Log($"<color=lime>[Gimersia Font]</color> Berhasil menerapkan font Dimbo Regular ke {changed} objek Text/TMP_Text di Scene!");
+            }
+        }
+        else if (logResult)
+        {
+            Debug.Log("<color=cyan>[Gimersia Font]</color> Seluruh objek Text/TMP_Text di Scene sudah menggunakan font Dimbo Regular!");
+        }
     }
 
     [MenuItem("Tools/Gimersia/Buat atau Pilih GameplayAudioManager (Slot Audio & SFX)")]
@@ -121,6 +191,11 @@ public static class PhoneUIBuilderEditor
             EditorUtility.SetDirty(hudObj);
             EditorSceneManager.MarkSceneDirty(hudObj.scene);
             Debug.Log("<color=lime>[Gimersia HUD Builder]</color> GameplayHUD_Canvas (Bar Kesadaran, Nyawa, Jarak, Kelopak Mata) berhasil dibuat di Hierarchy!");
+        }
+        else
+        {
+            manager.EnsureHUDCreated();
+            EditorUtility.SetDirty(manager);
         }
     }
 

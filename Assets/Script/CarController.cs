@@ -31,6 +31,11 @@ public class CarController : MonoBehaviour
 
     [Header("Steering Wheel Settings")]
     [SerializeField] private Transform steeringWheelPivot;
+    [Tooltip("Objek Tangan Kiri (otomatis terhubung ke 'tangan kiri' di Scene/Car Root agar selalu menempel & ikut memutar setir lalu kembali)")]
+    [SerializeField] private Transform leftHandTransform;
+    [Tooltip("Seberapa banyak tangan ikut berputar bersama setir (0.45 = tangan memutar 45% sudut setir sehingga lengan tidak terpelintir patah saat setir berputar 120 derajat, atau 1.0 = terkunci penuh 100% di titik genggam)")]
+    [Range(0f, 1f)]
+    [SerializeField] private float handRotationFollowRatio = 0.55f;
     [SerializeField] private float maxSteeringAngle = 120f;
     [SerializeField] private float steeringHoldDuration = 0.08f;
     [SerializeField] private float steeringTurnSmoothTime = 0.05f;
@@ -74,6 +79,9 @@ public class CarController : MonoBehaviour
     private float targetX;
 
     private Quaternion initialWheelRotation;
+    private Vector3 initialHandOffsetFromWheelLocal;
+    private Quaternion initialHandRotationInCarLocal;
+    private bool hasInitializedHandAttachment = false;
     private float currentSteeringAngle;
     private float steeringTargetAngle;
     private float steeringAngularVelocity;
@@ -106,11 +114,69 @@ public class CarController : MonoBehaviour
         if (steeringWheelPivot != null)
         {
             initialWheelRotation = steeringWheelPivot.localRotation;
+        }
+
+        InitializeLeftHandAttachment();
+
+        if (steeringWheelPivot != null)
+        {
             InitializeSteeringOutline();
         }
 
         SetupCarLightingAndHorizonFog();
         GameplayAudioManager.EnsureExists();
+    }
+
+    private void OnValidate()
+    {
+        AutoFindLeftHandTransform();
+    }
+
+    private void AutoFindLeftHandTransform()
+    {
+        if (leftHandTransform != null && leftHandTransform.gameObject.scene.IsValid())
+            return;
+
+        // 1. Cek di dalam Car Root / Setir terlebih dahulu
+        Transform[] childTransforms = GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < childTransforms.Length; i++)
+        {
+            if (childTransforms[i] != null &&
+                childTransforms[i].name.IndexOf("tangan kiri", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                leftHandTransform = childTransforms[i];
+                return;
+            }
+        }
+
+        // 2. Jika 'tangan kiri' masih ditaruh di luar Car Root (Root Hierarchy Scene), temukan otomatis!
+        GameObject sceneHand = GameObject.Find("tangan kiri");
+        if (sceneHand != null)
+        {
+            leftHandTransform = sceneHand.transform;
+        }
+    }
+
+    private void InitializeLeftHandAttachment()
+    {
+        AutoFindLeftHandTransform();
+
+        if (leftHandTransform == null || steeringWheelPivot == null)
+            return;
+
+        // Jika 'tangan kiri' masih berada di luar Car Root (di Root Scene), masukkan ke dalam Car Root (preserve world position & rotation)
+        // supaya saat mobil pindah jalur ke kiri/kanan, tangan kiri SELALU ikut terbawa bersama kabin mobil & tidak tertinggal di udara!
+        if (!leftHandTransform.IsChildOf(transform))
+        {
+            leftHandTransform.SetParent(transform, true);
+        }
+
+        // Hitung posisi titik genggam tangan relatif terhadap pusat Setir (dalam ruang lokal Car Root)
+        Vector3 handLocalInCar = transform.InverseTransformPoint(leftHandTransform.position);
+        Vector3 wheelLocalInCar = steeringWheelPivot.localPosition;
+        initialHandOffsetFromWheelLocal = handLocalInCar - wheelLocalInCar;
+        initialHandRotationInCarLocal = Quaternion.Inverse(transform.rotation) * leftHandTransform.rotation;
+        hasInitializedHandAttachment = true;
     }
 
     private void SetupCarLightingAndHorizonFog()
@@ -524,9 +590,37 @@ public class CarController : MonoBehaviour
             : Vector3.forward;
 
         // Apply rotation without changing scale
+        Quaternion wheelTurnDelta = Quaternion.AngleAxis(currentSteeringAngle, axis);
         steeringWheelPivot.localRotation =
             initialWheelRotation *
-            Quaternion.AngleAxis(currentSteeringAngle, axis);
+            wheelTurnDelta;
+
+        // Gerakkan & putar Tangan Kiri mengikuti putaran lingkar setir lalu kembali ke posisi semula saat setir lurus lagi!
+        if (hasInitializedHandAttachment && leftHandTransform != null)
+        {
+            // Sumbu putar setir di ruang lokal Car Root
+            Vector3 carLocalWheelAxis = (initialWheelRotation * axis).normalized;
+
+            // Posisi telapak tangan mengorbit mengikuti lingkar setir sehingga tangan selalu menempel di pinggiran setir
+            Quaternion orbitRotation = Quaternion.AngleAxis(currentSteeringAngle * handRotationFollowRatio, carLocalWheelAxis);
+            Vector3 rotatedOffset = orbitRotation * initialHandOffsetFromWheelLocal;
+            Vector3 targetHandCarLocalPos = steeringWheelPivot.localPosition + rotatedOffset;
+
+            // Rotasi pergelangan/lengan ikut miring natural mengikuti arah belok setir lalu kembali lurus
+            Quaternion wristTurnRotation = Quaternion.AngleAxis(currentSteeringAngle * (handRotationFollowRatio * 0.65f), carLocalWheelAxis);
+            Quaternion targetHandCarLocalRot = wristTurnRotation * initialHandRotationInCarLocal;
+
+            if (leftHandTransform.parent == transform)
+            {
+                leftHandTransform.localPosition = targetHandCarLocalPos;
+                leftHandTransform.localRotation = targetHandCarLocalRot;
+            }
+            else
+            {
+                leftHandTransform.position = transform.TransformPoint(targetHandCarLocalPos);
+                leftHandTransform.rotation = transform.rotation * targetHandCarLocalRot;
+            }
+        }
     }
 
     private void FixedUpdate()

@@ -55,11 +55,15 @@ public class GameplayAudioManager : MonoBehaviour
     [Header("2. Audio Mobil NPC (3D Spatial - Makin Dekat Makin Terdengar)")]
     [Tooltip("NPCEngine.mp3 - Suara mesin mobil NPC standar (Loop 3D)")]
     [SerializeField] private AudioClip npcEngineLoopClip;
-    [Tooltip("Audio Khusus Mobil Kampanye (Reveille Loud FAST [Alarm ringtone for mobiles].wav)")]
+    [Tooltip("Audio Khusus NPC Troll 1: Mobil Kampanye (Reveille Loud FAST [Alarm ringtone for mobiles].wav)")]
     [SerializeField] private AudioClip campaignNpcAudioClip;
     [Tooltip("Kata kunci nama prefab Mobil Kampanye (Default: 'kampanye')")]
     [SerializeField] private string campaignNpcNameKeyword = "kampanye";
-    [Tooltip("Audio Khusus / Troll untuk 1 Mobil NPC Spesial (Otomatis terisi tereret_Copy.mp3 / bisa diganti di Inspector)")]
+    [Tooltip("Audio Khusus NPC Troll 2: Kapal Bajak Laut (pirate with radio full video.mp3)")]
+    [SerializeField] private AudioClip pirateShipNpcAudioClip;
+    [Tooltip("Kata kunci nama prefab Kapal Bajak Laut (Default: 'Bajak')")]
+    [SerializeField] private string pirateShipNpcNameKeyword = "Bajak";
+    [Tooltip("Audio Khusus / Troll Tambahan untuk Angkot (Otomatis terisi tereret_Copy.mp3 / bisa diganti di Inspector)")]
     [SerializeField] private AudioClip specialTrollNpcAudioClip;
     [Tooltip("Nama kata kunci prefab mobil NPC yang memakai audio khusus troll (misal: 'Angkot' atau 'lemon'), atau peluang random jika semua mobil bisa kena")]
     [SerializeField] private string specialTrollNpcNameKeyword = "Angkot";
@@ -71,11 +75,15 @@ public class GameplayAudioManager : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float campaignNpcMaxVolume = 1.0f;
     [Range(0f, 1f)]
+    [SerializeField] private float pirateShipNpcMaxVolume = 1.0f;
+    [Range(0f, 1f)]
     [SerializeField] private float specialTrollNpcMaxVolume = 0.95f;
     [Tooltip("Jarak di mana suara mobil NPC terdengar paling keras (meter)")]
     [SerializeField] private float npcAudioMinDistance = 4.5f;
-    [Tooltip("Jarak mulai terdengarnya mobil NPC dari kejauhan (meter)")]
+    [Tooltip("Jarak mulai terdengarnya mobil NPC biasa dari kejauhan (meter)")]
     [SerializeField] private float npcAudioMaxDistance = 48f;
+    [Tooltip("Jarak dengar maksimal & fade-out natural di belakang untuk NPC Troll (Kampanye & Kapal Bajak Laut) (Default: 74m)")]
+    [SerializeField] private float trollNpcAudioMaxDistance = 74f;
     [Range(0f, 2f)]
     [SerializeField] private float npcDopplerLevel = 0.5f;
 
@@ -121,6 +129,7 @@ public class GameplayAudioManager : MonoBehaviour
     private AudioClip activeFinalCrashClip;
     private AudioClip activeNpcEngineClip;
     private AudioClip activeCampaignNpcClip;
+    private AudioClip activePirateShipNpcClip;
     private AudioClip activeSpecialTrollNpcClip;
     private AudioClip activeHeartbeatClip;
     private AudioClip activeGameOverPanelClip;
@@ -157,6 +166,8 @@ public class GameplayAudioManager : MonoBehaviour
             npcEngineLoopClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/NPCEngine.mp3");
         if (campaignNpcAudioClip == null)
             campaignNpcAudioClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/Reveille Loud FAST [Alarm ringtone for mobiles].wav");
+        if (pirateShipNpcAudioClip == null)
+            pirateShipNpcAudioClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/pirate with radio full video.mp3");
         if (specialTrollNpcAudioClip == null || specialTrollNpcAudioClip == npcEngineLoopClip)
         {
             AudioClip tereret = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/SFX/tereret_Copy.mp3");
@@ -249,6 +260,10 @@ public class GameplayAudioManager : MonoBehaviour
 
         activeCampaignNpcClip = campaignNpcAudioClip != null
             ? campaignNpcAudioClip
+            : activeNpcEngineClip;
+
+        activePirateShipNpcClip = pirateShipNpcAudioClip != null
+            ? pirateShipNpcAudioClip
             : activeNpcEngineClip;
 
         activeSpecialTrollNpcClip = specialTrollNpcAudioClip != null
@@ -383,6 +398,28 @@ public class GameplayAudioManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Memutar SFX belok/pindah jalur (Pindahjalur.mp3) saat NPC Troll banting setir di depan pemain!
+    /// Diputar baik di 3D AudioSource milik NPC maupun diperkuat di 2D OneShot supaya terdengar jelas oleh pemain yang sedang fokus lihat HP.
+    /// </summary>
+    public static void PlayNPCLaneChangeSwerve(GameObject npcObject = null)
+    {
+        EnsureExists();
+        if (Instance.activeLaneChangeClip == null) return;
+
+        if (npcObject != null)
+        {
+            AudioSource npcSrc = npcObject.GetComponent<AudioSource>();
+            if (npcSrc != null && npcSrc.isActiveAndEnabled)
+            {
+                npcSrc.PlayOneShot(Instance.activeLaneChangeClip, Mathf.Clamp01(Instance.laneChangeVolume * 1.15f));
+            }
+        }
+
+        // Perkuat juga di 2D SFX agar pemain yang sedang fokus ke layar HP langsung dengar suara ban belok/swerve NPC di depannya!
+        Instance.PlayOneShotInternal(Instance.activeLaneChangeClip, Instance.laneChangeVolume * 0.85f, Random.Range(0.92f, 1.05f));
+    }
+
+    /// <summary>
     /// Tabrakan biasa (masih ada sisa nyawa / rem mendadak) -> Crash.mp3
     /// </summary>
     public static void PlayNormalCrash()
@@ -484,6 +521,7 @@ public class GameplayAudioManager : MonoBehaviour
         EnsureExists();
 
         bool isCampaignNpc = false;
+        bool isPirateShipNpc = false;
         bool useTrollAudio = false;
 
         if (customOverrideClip == null)
@@ -493,6 +531,14 @@ public class GameplayAudioManager : MonoBehaviour
                 npcObject.name.IndexOf(Instance.campaignNpcNameKeyword, System.StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 isCampaignNpc = true;
+            }
+            else if (Instance.activePirateShipNpcClip != null &&
+                     !string.IsNullOrWhiteSpace(Instance.pirateShipNpcNameKeyword) &&
+                     (npcObject.name.IndexOf(Instance.pirateShipNpcNameKeyword, System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                      npcObject.name.IndexOf("Pirate", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                      npcObject.name.IndexOf("Kapal", System.StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                isPirateShipNpc = true;
             }
             else if (Instance.activeSpecialTrollNpcClip != null)
             {
@@ -512,7 +558,9 @@ public class GameplayAudioManager : MonoBehaviour
             ? customOverrideClip
             : (isCampaignNpc
                 ? Instance.activeCampaignNpcClip
-                : (useTrollAudio ? Instance.activeSpecialTrollNpcClip : Instance.activeNpcEngineClip));
+                : (isPirateShipNpc
+                    ? Instance.activePirateShipNpcClip
+                    : (useTrollAudio ? Instance.activeSpecialTrollNpcClip : Instance.activeNpcEngineClip)));
 
         if (chosenClip == null) return;
 
@@ -522,28 +570,38 @@ public class GameplayAudioManager : MonoBehaviour
             npcSrc = npcObject.AddComponent<AudioSource>();
         }
 
+        bool isMajorTrollNpc = isCampaignNpc || isPirateShipNpc;
+        bool isAnyTrollAudio = customOverrideClip != null || isMajorTrollNpc || useTrollAudio;
+
         npcSrc.clip = chosenClip;
         npcSrc.loop = true;
         npcSrc.playOnAwake = false;
         npcSrc.spatialBlend = 1.0f; // 100% 3D Spatial Audio
         npcSrc.rolloffMode = AudioRolloffMode.Custom;
-        npcSrc.minDistance = isCampaignNpc ? Mathf.Max(6.5f, Instance.npcAudioMinDistance * 1.4f) : Mathf.Max(1f, Instance.npcAudioMinDistance);
-        npcSrc.maxDistance = isCampaignNpc ? Mathf.Max(62f, Instance.npcAudioMaxDistance * 1.25f) : Mathf.Max(npcSrc.minDistance + 5f, Instance.npcAudioMaxDistance);
+        npcSrc.minDistance = isMajorTrollNpc
+            ? Mathf.Max(6.5f, Instance.npcAudioMinDistance * 1.45f)
+            : Mathf.Max(1f, Instance.npcAudioMinDistance);
+        npcSrc.maxDistance = isAnyTrollAudio
+            ? Mathf.Max(68f, Instance.trollNpcAudioMaxDistance)
+            : Mathf.Max(npcSrc.minDistance + 5f, Instance.npcAudioMaxDistance);
 
+        // Kurva 3D Spatial Rolloff yang memiliki ekor fade-out sangat halus hingga 0% di jarak maxDistance
         AnimationCurve curve = new AnimationCurve(
             new Keyframe(0f, 1f),
-            new Keyframe(0.25f, 0.55f),
-            new Keyframe(0.6f, 0.16f),
+            new Keyframe(0.22f, 0.62f),
+            new Keyframe(0.50f, 0.28f),
+            new Keyframe(0.78f, 0.09f),
             new Keyframe(1f, 0f)
         );
         npcSrc.SetCustomCurve(AudioSourceCurveType.CustomRolloff, curve);
 
-        bool isSpecialClip = customOverrideClip != null || isCampaignNpc || useTrollAudio;
         npcSrc.volume = isCampaignNpc
             ? Instance.campaignNpcMaxVolume
-            : (useTrollAudio ? Instance.specialTrollNpcMaxVolume : Instance.npcEngineMaxVolume);
-        npcSrc.pitch = isSpecialClip ? 1.0f : Random.Range(0.92f, 1.08f);
-        npcSrc.dopplerLevel = isSpecialClip ? 0.10f : Instance.npcDopplerLevel;
+            : (isPirateShipNpc
+                ? Instance.pirateShipNpcMaxVolume
+                : (useTrollAudio ? Instance.specialTrollNpcMaxVolume : Instance.npcEngineMaxVolume));
+        npcSrc.pitch = isAnyTrollAudio ? 1.0f : Random.Range(0.92f, 1.08f);
+        npcSrc.dopplerLevel = isAnyTrollAudio ? 0.08f : Instance.npcDopplerLevel;
         npcSrc.Play();
 
         for (int i = Instance.activeNpcSources.Count - 1; i >= 0; i--)
