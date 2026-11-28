@@ -43,6 +43,9 @@ public class MinigameFingerprint : MonoBehaviour, IPointerDownHandler, IPointerU
     private VerifyState currentState = VerifyState.WaitingForHold;
     private float currentHoldTimer = 0f;
     private float stateTimer = 0f;
+    private string cachedCustomInstructionText;
+    private Color cachedCustomSensorColor = new Color(0.14f, 0.22f, 0.34f, 1f);
+    private bool hasCachedCustomDefaults = false;
 
     public Action OnVerificationCompleted;
 
@@ -217,11 +220,29 @@ public class MinigameFingerprint : MonoBehaviour, IPointerDownHandler, IPointerU
     private void Awake()
     {
         BuildPlaceholderUI();
+        CacheHierarchyCustomDefaults();
+    }
+
+    private void CacheHierarchyCustomDefaults()
+    {
+        if (hasCachedCustomDefaults) return;
+
+        if (instructionText != null && !string.IsNullOrEmpty(instructionText.text))
+        {
+            cachedCustomInstructionText = instructionText.text;
+        }
+        if (sensorBoxImage != null)
+        {
+            cachedCustomSensorColor = sensorBoxImage.color;
+        }
+        hasCachedCustomDefaults = true;
     }
 
     public void ResetToLockScreen()
     {
         BuildPlaceholderUI();
+        CacheHierarchyCustomDefaults();
+
         currentState = VerifyState.WaitingForHold;
         currentHoldTimer = 0f;
         UpdateProgressVisual(0f);
@@ -230,10 +251,14 @@ public class MinigameFingerprint : MonoBehaviour, IPointerDownHandler, IPointerU
             resultOverlayPanel.SetActive(false);
 
         if (sensorBoxImage != null)
-            sensorBoxImage.color = new Color(0.14f, 0.22f, 0.34f, 1f);
+            sensorBoxImage.color = cachedCustomSensorColor;
 
         if (instructionText != null)
-            instructionText.text = "KLIK & TAHAN (HOLD)\nSELAMA 2 DETIK";
+        {
+            instructionText.text = !string.IsNullOrEmpty(cachedCustomInstructionText)
+                ? cachedCustomInstructionText
+                : "KLIK & TAHAN (HOLD)\nSELAMA 2 DETIK";
+        }
     }
 
     private void Update()

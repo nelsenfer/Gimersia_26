@@ -51,6 +51,9 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
     private bool isGameplayPaused = false;
     private int caughtCount = 0;
     private float bowlNormalizedX = 0.5f;
+    private string cachedCustomInstructionText;
+    private Color cachedCustomInstructionColor = new Color(1f, 0.88f, 0.4f);
+    private bool hasCachedCustomDefaults = false;
 
     public Action<float> OnConsciousnessReward;
 
@@ -244,6 +247,19 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
             sessionCompleteBonus = 14.0f;
         }
         BuildPlaceholderUI();
+        CacheHierarchyCustomDefaults();
+    }
+
+    private void CacheHierarchyCustomDefaults()
+    {
+        if (hasCachedCustomDefaults) return;
+
+        if (instructionText != null && !string.IsNullOrEmpty(instructionText.text))
+        {
+            cachedCustomInstructionText = instructionText.text;
+            cachedCustomInstructionColor = instructionText.color;
+        }
+        hasCachedCustomDefaults = true;
     }
 
     private void OnEnable()
@@ -258,6 +274,7 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
     public void ResetMinigame()
     {
         BuildPlaceholderUI();
+        CacheHierarchyCustomDefaults();
         ClearAllBaksos();
 
         caughtCount = 0;
@@ -270,8 +287,10 @@ public class MinigameBakso : MonoBehaviour, IPointerDownHandler, IDragHandler
 
         if (instructionText != null)
         {
-            instructionText.text = "🍜 AMBIL BAKSO\nSEBANYAK-BANYAKNYA!";
-            instructionText.color = new Color(1f, 0.88f, 0.4f);
+            instructionText.text = !string.IsNullOrEmpty(cachedCustomInstructionText)
+                ? cachedCustomInstructionText
+                : "🍜 AMBIL BAKSO\nSEBANYAK-BANYAKNYA!";
+            instructionText.color = cachedCustomInstructionColor;
         }
 
         if (bowlRect != null)

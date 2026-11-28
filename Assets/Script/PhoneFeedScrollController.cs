@@ -118,6 +118,9 @@ public class PhoneFeedScrollController : MonoBehaviour
     private bool missedPreviousBufferRoll = false;
     private float phoneIdleTimer = 0f;
 
+    private string cachedCustomLockStatusBarText;
+    private bool hasCachedCustomLockStatus = false;
+
     private readonly List<RaycastResult> raycastResults = new List<RaycastResult>();
 
     public float TotalDopamineEarned => totalDopamineEarned;
@@ -453,6 +456,11 @@ public class PhoneFeedScrollController : MonoBehaviour
         parentCanvas = GetComponentInParent<Canvas>();
 
         EnsureMinigameHierarchyBuilt();
+        if (!hasCachedCustomLockStatus && topStatusBarText != null && !string.IsNullOrEmpty(topStatusBarText.text))
+        {
+            cachedCustomLockStatusBarText = topStatusBarText.text;
+            hasCachedCustomLockStatus = true;
+        }
         CacheReelLayoutDefaults();
         BindMinigameCallbacks();
     }
@@ -1176,7 +1184,11 @@ public class PhoneFeedScrollController : MonoBehaviour
             lockScreenFingerprint.ResetToLockScreen();
         }
 
-        UpdateTopStatusBar("🔒 HP TERKUNCI | Tahan 2 Detik");
+        UpdateTopStatusBar(
+            !string.IsNullOrEmpty(cachedCustomLockStatusBarText)
+                ? cachedCustomLockStatusBarText
+                : "🔒 HP TERKUNCI | Tahan 2 Detik"
+        );
     }
 
     private void HandleFingerprintUnlocked()

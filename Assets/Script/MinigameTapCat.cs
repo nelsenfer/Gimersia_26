@@ -43,6 +43,10 @@ public class MinigameTapCat : MonoBehaviour
     private float tapPoseTimer = 0f;
     private bool isShowingTapPose = false;
     private bool missionCompleted = false;
+    private string cachedCustomMissionTitle;
+    private string cachedCustomHintText;
+    private string cachedCustomIdleButtonText;
+    private bool hasCachedCustomTexts = false;
 
     public Action<float> OnConsciousnessReward;
 
@@ -161,7 +165,22 @@ public class MinigameTapCat : MonoBehaviour
     private void Awake()
     {
         BuildPlaceholderUI();
+        CacheHierarchyCustomTexts();
         BindButtonEvents();
+    }
+
+    private void CacheHierarchyCustomTexts()
+    {
+        if (hasCachedCustomTexts) return;
+
+        if (missionTitleText != null && !string.IsNullOrEmpty(missionTitleText.text))
+            cachedCustomMissionTitle = missionTitleText.text;
+        if (statusHintText != null && !string.IsNullOrEmpty(statusHintText.text))
+            cachedCustomHintText = statusHintText.text;
+        if (catPlaceholderText != null)
+            cachedCustomIdleButtonText = catPlaceholderText.text;
+
+        hasCachedCustomTexts = true;
     }
 
     private void BindButtonEvents()
@@ -176,6 +195,7 @@ public class MinigameTapCat : MonoBehaviour
     public void ResetMinigame()
     {
         BuildPlaceholderUI();
+        CacheHierarchyCustomTexts();
         BindButtonEvents();
 
         currentTaps = 0;
@@ -269,7 +289,9 @@ public class MinigameTapCat : MonoBehaviour
             {
                 catPlaceholderText.text = idleCatSprite != null
                     ? ""
-                    : "(=^･ω･^=)\n\n[ KUCING IDLE ]\nTAP AKU!";
+                    : (cachedCustomIdleButtonText != null
+                        ? cachedCustomIdleButtonText
+                        : "(=^･ω･^=)\n\n[ KUCING IDLE ]\nTAP AKU!");
             }
 
             catImage.rectTransform.localScale = Vector3.one;
@@ -280,12 +302,16 @@ public class MinigameTapCat : MonoBehaviour
     {
         if (missionTitleText != null)
         {
-            missionTitleText.text = $"🐱 MISI: TAP KUCING {targetTapCount} KALI!";
+            missionTitleText.text = !string.IsNullOrEmpty(cachedCustomMissionTitle)
+                ? cachedCustomMissionTitle
+                : $"🐱 MISI: TAP KUCING {targetTapCount} KALI!";
         }
 
         if (statusHintText != null)
         {
-            statusHintText.text = "Ketuk kucing cepat-cepat!";
+            statusHintText.text = !string.IsNullOrEmpty(cachedCustomHintText)
+                ? cachedCustomHintText
+                : "Ketuk kucing cepat-cepat!";
         }
 
         if (counterText != null)

@@ -778,6 +778,7 @@ public class NPCSpawner : MonoBehaviour
 
             AlignBottomToGround(
                 instance,
+                spawnPosition.x,
                 spawnPosition.y
             );
 
@@ -946,9 +947,11 @@ public class NPCSpawner : MonoBehaviour
         }
     }
 
-    // Align NPC visual bottom to asphalt
+    // Align NPC visual bottom to asphalt & center X to the exact lane center
+    // (Mencegah mobil NPC melenceng ke garis putus-putus tengah jalan jika titik pivot FBX 3D-nya tidak pas di tengah mesh)
     private void AlignBottomToGround(
         GameObject obj,
+        float targetLaneX,
         float groundY)
     {
         Renderer[] renderers =
@@ -964,14 +967,27 @@ public class NPCSpawner : MonoBehaviour
             bounds.Encapsulate(renderers[i].bounds);
         }
 
-        float correction =
+        // Koreksi sumbu X agar titik tengah visual bodi/roda mobil (bounds.center.x)
+        // tepat berada di tengah jalur (targetLaneX), tidak peduli bila pivot FBX agak miring ke kiri/kanan!
+        float correctionX =
+            targetLaneX - bounds.center.x;
+
+        float correctionY =
             groundY - bounds.min.y;
 
         Vector3 correctedPosition =
             obj.transform.position +
-            Vector3.up * correction;
+            new Vector3(correctionX, correctionY, 0f);
 
         obj.transform.position = correctedPosition;
+
+        // Pastikan BoxCollider trigger juga membungkus tepat di tengah bodi visual mobil
+        BoxCollider rootBox = obj.GetComponent<BoxCollider>();
+        if (rootBox != null)
+        {
+            Vector3 newBoundsCenter = bounds.center + new Vector3(correctionX, correctionY, 0f);
+            rootBox.center = obj.transform.InverseTransformPoint(newBoundsCenter);
+        }
 
         Rigidbody rb = obj.GetComponent<Rigidbody>();
 
