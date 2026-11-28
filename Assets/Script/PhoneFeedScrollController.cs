@@ -330,6 +330,9 @@ public class PhoneFeedScrollController : MonoBehaviour
         }
         minigameOsu.BuildPlaceholderUI();
 
+        // 4.4. Panel Loading Buffering (Full Hitam, tepat di atas 4 Reel tapi di bawah FYP_UI_Overlay / UI Reels)
+        EnsureReelBufferOverlayBuilt();
+
         // 4.5. Overlay UI FYP (Assets/Sprite/Ingame/UI.png - muncul setelah unlock sidik jari)
         EnsureFypOverlayBuilt();
 
@@ -686,11 +689,11 @@ public class PhoneFeedScrollController : MonoBehaviour
 
         if (reelBufferOverlayPanel == null)
         {
-            // Hanya gelap transparan (alpha 0.58) agar UI Reel di belakangnya tetap terlihat jelas!
+            // Full hitam pekat (alpha 1.0) menutupi konten minigame, tetapi berada di bawah layer FYP_UI_Overlay (UI Reels)!
             RectTransform rt = PhoneUIHelper.CreatePanel(
                 "Reel_Buffering_Overlay",
                 transform,
-                new Color(0f, 0f, 0f, 0.58f),
+                new Color(0f, 0f, 0f, 1f),
                 new Vector2(0f, 0f),
                 new Vector2(1f, 0.92f)
             );
@@ -715,7 +718,7 @@ public class PhoneFeedScrollController : MonoBehaviour
             Image bgImg = reelBufferOverlayPanel.GetComponent<Image>();
             if (bgImg != null)
             {
-                bgImg.color = new Color(0f, 0f, 0f, 0.58f);
+                bgImg.color = new Color(0f, 0f, 0f, 1f);
             }
             if (reelBufferOverlayText == null)
             {
